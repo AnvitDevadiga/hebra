@@ -38,9 +38,13 @@ BOUNDARY_SLACK_TOKENS = 16
 
 @dataclass(frozen=True)
 class Weights:
+    """Objective weights. Defaults chosen on the benchmark's dev split only
+    (``benchmarks/results/v1-dev-tuning``); every grid setting scored within
+    0.015 mean symbol recall of the others, so the choice is not significant."""
+
     alpha: float = 1.0  # rank prior
     beta: float = 1.0  # query-term coverage
-    gamma: float = 1.0  # graph-symbol coverage
+    gamma: float = 0.5  # graph-symbol coverage
 
     def __post_init__(self) -> None:
         if min(self.alpha, self.beta, self.gamma) < 0:
