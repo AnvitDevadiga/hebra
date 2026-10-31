@@ -218,8 +218,9 @@ def test_h1_previous_phase1_index_is_rebuilt(make_repo) -> None:
     root = make_repo({"a.py": "def alpha():\n    pass\n"})
     fs_index(root)
     db = root / ".hebra" / "index.sqlite3"
-    # Recreate the pre-remediation layout: no application_id, no format key.
+    # Recreate the pre-remediation layout: schema 1, no application_id, no format key.
     conn = sqlite3.connect(db)
+    conn.execute("PRAGMA user_version = 1")
     conn.execute("PRAGMA application_id = 0")
     conn.execute("DELETE FROM meta WHERE key = 'index_format_version'")
     conn.commit()
@@ -230,6 +231,20 @@ def test_h1_previous_phase1_index_is_rebuilt(make_repo) -> None:
     assert report.rebuilt and report.files_added == 1
     assert any("rebuilt" in w for w in report.warnings)
     assert search(root, "alpha").hits
+
+
+def test_final_phase1_index_is_rebuilt_for_new_schema(make_repo) -> None:
+    root = make_repo({"a.py": "def alpha():\n    pass\n"})
+    fs_index(root)
+    conn = sqlite3.connect(root / ".hebra" / "index.sqlite3")
+    conn.execute("PRAGMA user_version = 1")  # merged Phase 1: schema 1, format 2, app id set
+    conn.execute("UPDATE meta SET value = '2' WHERE key = 'index_format_version'")
+    conn.commit()
+    conn.close()
+    with pytest.raises(IndexVersionError):
+        search(root, "alpha")
+    report = fs_index(root)
+    assert report.rebuilt and search(root, "alpha").hits
 
 
 def test_l6_chunking_change_forces_rebuild(make_repo) -> None:
@@ -1042,3 +1057,30 @@ def test_lstat_fallback_indexes_and_still_rejects_symlinks(
     os.symlink(victim, other / ".hebra")
     with pytest.raises(IndexPathError, match="symbolic link"):
         fs_index(other)
+
+
+def test_trace_output_escapes_untrusted_reasons(make_repo) -> None:
+    body = "def shared_helper():\n    return 1\n"
+    root = make_repo({"0\x1b[31mRED.py": body, "z.py": body})
+    fs_index(root)
+    result = run_cli("pack", str(root), "--task", "shared helper", "--budget", "2000", "--trace")
+    assert result.returncode == 0
+    assert b"\x1b" not in result.stderr
+
+
+def test_memory_rename_check_refuses_symlinked_index(make_repo, tmp_path: Path) -> None:
+    from hebra.memory import open_memory
+
+    root = make_repo({"t.py": "def f():\n    return 1\n"})
+    with open_memory(root, create=True) as memory:
+        rid = memory.add("fact", "f", ["t.py:1-2"]).record.id
+    (root / "t.py").unlink()
+    other = tmp_path / "other.db"
+    conn = sqlite3.connect(other)
+    conn.execute("CREATE TABLE files(path, sha256)")
+    conn.commit()
+    conn.close()
+    os.symlink(other, root / ".hebra" / "index.sqlite3")
+    with open_memory(root, create=False) as memory:
+        check = memory.view(memory.get(rid)).checks[0]
+    assert check.status == "missing"  # the foreign database was not consulted

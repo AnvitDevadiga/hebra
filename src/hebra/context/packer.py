@@ -1,42 +1,43 @@
-"""Baseline token-budget-aware context packing.
+"""Token-budgeted context packing.
 
-Policy (Phase 1, deliberately simple):
+Pipeline:
 
-1. Retrieve the top-N BM25 candidates for the task.
+1. Retrieve up to ``candidates`` fragments (``bm25`` or ``bm25_graph``).
 2. Exclude candidates whose source file no longer matches the indexed
-   snapshot (``SearchHit.source_status != "current"``): their content and
-   line numbers would be wrong.
-3. Walk the rest in rank order. Skip exact duplicate content. Append a fragment
-   only if the *whole rendered document* still fits the budget, re-counted
-   with the real tokenizer after each addition. Fragments are never truncated.
-4. Verify the final document against the budget before returning it.
-
-Because acceptance is decided on the full rendered document, the budget
-guarantee includes all formatting overhead and any token merges across
-fragment boundaries.
+   snapshot (``SearchHit.source_status != "current"``) and exact duplicates.
+3. Optionally add verified repository memory records as candidates.
+4. Select with ``greedy`` (Phase 1 policy) or ``optimized`` (see
+   :mod:`hebra.context.optimizer`). Every acceptance re-counts the complete
+   rendered document with the real tokenizer, so the budget guarantee covers
+   all formatting overhead and token merges across fragment boundaries.
+5. Verify the final document against the budget before returning it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hebra import __version__
-from hebra.context.render import render_fragment, render_header, selection_reason
+from hebra.context.optimizer import STRATEGIES, Decision, Item, Objective, Weights, select
+from hebra.context.render import (
+    render_fragment,
+    render_header,
+    render_memory,
+    selection_reason,
+)
 from hebra.context.tokenizer import DEFAULT_ENCODING, SUPPORTED_ENCODINGS, get_token_counter
 from hebra.errors import BudgetError
 from hebra.paths import resolve_repository
-from hebra.retrieval.search import SearchHit, search
+from hebra.retrieval.search import MODES, SearchHit, search
+
+if TYPE_CHECKING:
+    from hebra.memory import MemoryView
 
 DEFAULT_CANDIDATES = 50
 MAX_BUDGET = 2_000_000
-# Pre-filter slack: a fragment whose stand-alone token count exceeds the
-# remaining budget by more than this is skipped without a full re-count.
-# This only avoids work; acceptance always uses the exact full count.
-_BOUNDARY_SLACK_TOKENS = 16
-
-PACK_SCHEMA = "hebra.pack/v1"
+PACK_SCHEMA = "hebra.pack/v2"
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,12 @@ class Fragment:
 class Exclusion:
     hit: SearchHit
     reason: str
+
+
+@dataclass(frozen=True)
+class MemoryFragment:
+    view: MemoryView
+    tokens: int
 
 
 @dataclass
@@ -71,6 +78,14 @@ class PackResult:
     excluded: list[Exclusion]
     markdown: str
     warnings: list[str] = field(default_factory=list)
+    retrieval: str = "bm25"
+    strategy: str = "greedy"
+    weights: Weights = field(default_factory=Weights)
+    utility: float = 0.0
+    selection_note: str = ""
+    trace: list[Decision] = field(default_factory=list)
+    memory: list[MemoryFragment] = field(default_factory=list)
+    memory_excluded: list[tuple[str, str]] = field(default_factory=list)  # (id, reason)
 
     def to_dict(self) -> dict[str, Any]:
         def ref(hit: SearchHit) -> dict[str, Any]:
@@ -84,6 +99,13 @@ class PackResult:
                 "score": hit.score,
                 "content_sha256": hit.content_sha256,
                 "source_status": hit.source_status,
+                "retrieval": {
+                    "sources": list(hit.sources),
+                    "bm25_rank": hit.bm25_rank,
+                    "bm25_score": hit.bm25_score,
+                    "graph_rank": hit.graph_rank,
+                    "evidence": list(hit.evidence),
+                },
             }
 
         return {
@@ -103,12 +125,24 @@ class PackResult:
                 "note": SUPPORTED_ENCODINGS[self.encoding]
                 + "; other model tokenizers will produce different counts",
             },
+            "method": {
+                "retrieval": self.retrieval,
+                "strategy": self.strategy,
+                "objective_weights": {
+                    "alpha": self.weights.alpha,
+                    "beta": self.weights.beta,
+                    "gamma": self.weights.gamma,
+                },
+                "utility": round(self.utility, 6),
+                "note": self.selection_note,
+            },
             "budget": {
                 "limit": self.budget,
                 "used": self.used_tokens,
                 "remaining": self.budget - self.used_tokens,
                 "header_tokens": self.header_tokens,
                 "fragment_tokens": self.used_tokens - self.header_tokens,
+                "utilization": round(self.used_tokens / self.budget, 6),
             },
             "candidates_considered": self.candidates,
             "source_check": {
@@ -126,6 +160,24 @@ class PackResult:
                 for f in self.selected
             ],
             "excluded": [{**ref(e.hit), "reason": e.reason} for e in self.excluded],
+            "memory": {
+                "selected": [{**m.view.to_dict(), "tokens": m.tokens} for m in self.memory],
+                "excluded": [{"id": i, "reason": r} for i, r in self.memory_excluded],
+            },
+            "trace": [
+                {
+                    "key": d.key,
+                    "rank": d.rank,
+                    "selected": d.selected,
+                    "reason": d.reason,
+                    "tokens": d.tokens,
+                    "standalone_gain": round(d.standalone_gain, 6),
+                    "marginal_gain": None if d.marginal_gain is None else round(d.marginal_gain, 6),
+                    "redundancy": None if d.redundancy is None else round(d.redundancy, 6),
+                    "gain_per_token": None if d.ratio is None else round(d.ratio, 9),
+                }
+                for d in self.trace
+            ],
             "warnings": self.warnings,
             "context": self.markdown,
         }
@@ -140,6 +192,10 @@ def validate_budget(budget: int) -> None:
         raise BudgetError(f"budget must be at most {MAX_BUDGET} tokens, got {budget}")
 
 
+def chunk_key(hit: SearchHit) -> str:
+    return f"chunk:{hit.path}:{hit.start_line}"
+
+
 def pack_context(
     repo_root: Path,
     task: str,
@@ -148,12 +204,26 @@ def pack_context(
     encoding: str = DEFAULT_ENCODING,
     candidates: int = DEFAULT_CANDIDATES,
     db_path: Path | None = None,
+    retrieval: str = "bm25",
+    strategy: str = "greedy",
+    weights: Weights | None = None,
+    memory: list[MemoryView] | None = None,
 ) -> PackResult:
-    """Select ranked fragments for ``task`` whose rendered Markdown fits ``budget``."""
+    """Select fragments for ``task`` whose rendered Markdown fits ``budget``.
+
+    ``memory`` is an optional list of repository memory records (already
+    checked for freshness by :mod:`hebra.memory`); only records whose status
+    is ``current`` or ``decision`` and that share a query term are eligible.
+    """
     validate_budget(budget)
+    if strategy not in STRATEGIES:
+        raise BudgetError(f"unknown strategy {strategy!r}; choose one of: {', '.join(STRATEGIES)}")
+    if retrieval not in MODES:
+        raise BudgetError(f"unknown retrieval {retrieval!r}; choose one of: {', '.join(MODES)}")
+    weights = weights or Weights()
     counter = get_token_counter(encoding)
     root = resolve_repository(repo_root)
-    response = search(root, task, limit=candidates, db_path=db_path)
+    response = search(root, task, limit=candidates, db_path=db_path, mode=retrieval)
 
     files_checked = len({hit.path for hit in response.hits})
     stale_count = sum(1 for hit in response.hits if hit.source_status != "current")
@@ -162,7 +232,13 @@ def pack_context(
         f"{stale_count} stale candidate(s) excluded"
     )
     document = render_header(
-        task, root.name, response.index_revision, budget, encoding, source_check
+        task,
+        root.name,
+        response.index_revision,
+        budget,
+        encoding,
+        source_check,
+        f"{retrieval} retrieval, {strategy} selection",
     )
     header_tokens = counter.count(document)
     if header_tokens > budget:
@@ -171,63 +247,86 @@ def pack_context(
             f"{header_tokens} tokens ({encoding})"
         )
 
-    used = header_tokens
-    selected: list[Fragment] = []
     excluded: list[Exclusion] = []
+    pre_excluded: list[Decision] = []  # rejected before selection (stale, duplicate)
     seen_content: dict[str, SearchHit] = {}
+    hits_by_key: dict[str, SearchHit] = {}
+    reasons: dict[str, str] = {}
+    items: list[Item] = []
     total = len(response.hits)
-
     for hit in response.hits:
         if hit.source_status != "current":
-            excluded.append(
-                Exclusion(
-                    hit,
-                    f"source file is {hit.source_status} since indexing, so its content and "
-                    "line numbers are not current; re-run `hebra index`",
-                )
+            reason = (
+                f"source file is {hit.source_status} since indexing, so its content and "
+                "line numbers are not current; re-run `hebra index`"
             )
+            excluded.append(Exclusion(hit, reason))
+            pre_excluded.append(Decision(chunk_key(hit), hit.rank, False, reason))
             continue
         duplicate_of = seen_content.get(hit.content_sha256)
         if duplicate_of is not None:
-            excluded.append(
-                Exclusion(
-                    hit,
-                    f"identical content already selected from {duplicate_of.path}:"
-                    f"{duplicate_of.start_line}-{duplicate_of.end_line}",
-                )
+            reason = (
+                f"identical content already selected from {duplicate_of.path}:"
+                f"{duplicate_of.start_line}-{duplicate_of.end_line}"
             )
+            excluded.append(Exclusion(hit, reason))
+            pre_excluded.append(Decision(chunk_key(hit), hit.rank, False, reason))
             continue
-
-        reason = selection_reason(hit, total)
-        piece = render_fragment(len(selected) + 1, hit, reason)
-        remaining = budget - used
-        standalone = counter.count(piece)
-        if standalone > remaining + _BOUNDARY_SLACK_TOKENS:
-            excluded.append(
-                Exclusion(hit, f"needs ~{standalone} tokens; only {remaining} remain in budget")
-            )
-            continue
-        new_total = counter.count(document + piece)
-        if new_total > budget:
-            excluded.append(
-                Exclusion(
-                    hit,
-                    f"needs {new_total - used} tokens; only {remaining} remain in budget",
-                )
-            )
-            continue
-
-        selected.append(Fragment(hit, new_total - used, reason))
         seen_content[hit.content_sha256] = hit
-        document += piece
-        used = new_total
+        key = chunk_key(hit)
+        hits_by_key[key] = hit
+        reasons[key] = selection_reason(hit, total, retrieval)
+        items.append(Item(key, hit.rank, frozenset(hit.matched_terms), frozenset(hit.symbols)))
 
-    final_tokens = counter.count(document)
-    if final_tokens != used or final_tokens > budget:  # pragma: no cover - invariant
+    memory_by_key: dict[str, MemoryView] = {}
+    memory_excluded: list[tuple[str, str]] = []
+    terms = set(response.terms)
+    for offset, view in enumerate(memory or [], start=1):
+        overlap = frozenset(terms & view.terms)
+        if view.status not in ("current", "decision"):
+            memory_excluded.append((view.record.id, f"memory status is {view.status}"))
+        elif not overlap:
+            memory_excluded.append((view.record.id, "shares no term with the task"))
+        else:
+            key = f"memory:{view.record.id}"
+            memory_by_key[key] = view
+            # Memory ranks after every code candidate (a conservative prior).
+            items.append(Item(key, total + offset, overlap, frozenset()))
+
+    def render(item: Item, position: int) -> str:
+        if item.key in memory_by_key:
+            return render_memory(position, memory_by_key[item.key])
+        return render_fragment(position, hits_by_key[item.key], reasons[item.key])
+
+    objective = Objective(items, response.term_weights, response.symbol_weights, weights)
+    chosen = select(strategy, items, objective, document, budget, render, counter.count)
+
+    final_tokens = counter.count(chosen.document)
+    if final_tokens != chosen.used_tokens or final_tokens > budget:  # pragma: no cover
         raise AssertionError(
-            f"internal error: packed context has {final_tokens} tokens, accounted {used}, "
-            f"budget {budget}"
+            f"internal error: packed context has {final_tokens} tokens, accounted "
+            f"{chosen.used_tokens}, budget {budget}"
         )
+
+    selected: list[Fragment] = []
+    memory_selected: list[MemoryFragment] = []
+    for item in chosen.order:
+        decision = chosen.decisions[item.key]
+        assert decision.tokens is not None
+        if item.key in memory_by_key:
+            memory_selected.append(MemoryFragment(memory_by_key[item.key], decision.tokens))
+        else:
+            selected.append(Fragment(hits_by_key[item.key], decision.tokens, reasons[item.key]))
+    chosen_keys = {item.key for item in chosen.order}
+    for item in items:
+        if item.key in chosen_keys:
+            continue
+        reason = chosen.decisions[item.key].reason
+        if item.key in memory_by_key:
+            memory_excluded.append((memory_by_key[item.key].record.id, reason))
+        else:
+            excluded.append(Exclusion(hits_by_key[item.key], reason))
+    excluded.sort(key=lambda e: e.hit.rank)
 
     warnings = list(response.warnings)
     if not response.hits:
@@ -246,13 +345,21 @@ def pack_context(
         encoding=encoding,
         budget=budget,
         header_tokens=header_tokens,
-        used_tokens=used,
+        used_tokens=chosen.used_tokens,
         candidates=total,
         files_checked=files_checked,
         stale_excluded=stale_count,
         terms=response.terms,
         selected=selected,
         excluded=excluded,
-        markdown=document,
+        markdown=chosen.document,
         warnings=warnings,
+        retrieval=retrieval,
+        strategy=strategy,
+        weights=weights,
+        utility=chosen.utility,
+        selection_note=chosen.note,
+        trace=sorted([*chosen.decisions.values(), *pre_excluded], key=lambda d: (d.rank, d.key)),
+        memory=memory_selected,
+        memory_excluded=memory_excluded,
     )

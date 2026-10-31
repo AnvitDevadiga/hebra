@@ -50,6 +50,8 @@ from typing import Any
 from hebra import __version__
 from hebra.config import IndexConfig
 from hebra.errors import RepositoryChangedError
+from hebra.graph.build import assign_symbol_ids, is_test_file, module_names, rebuild_graph
+from hebra.graph.extract import RawRef
 from hebra.indexing import store
 from hebra.indexing.chunking import Chunk, split_lines, text_chunks
 from hebra.indexing.gitmeta import read_head_revision
@@ -127,6 +129,7 @@ class IndexReport:
     python_parse_failures: int = 0
     rebuilt: bool = False
     snapshot_attempts: int = 0
+    graph_edges: dict[str, int] = field(default_factory=dict)  # edge count by status
     candidates: int = 0
     entries_enumerated: int = 0
     bytes_read: int = 0
@@ -140,6 +143,12 @@ class IndexReport:
 
 def detect_language(path: str) -> str:
     return _LANGUAGES.get(PurePosixPath(path).suffix.lower(), "text")
+
+
+def _canonical_module(path: str) -> str | None:
+    """The shortest dotted name a Python file is importable as (src/ layout aware)."""
+    names = module_names(path)
+    return names[-1] if names else None
 
 
 def _chunk_symbol_names(chunk: Chunk, symbols: list[Symbol]) -> str:
@@ -163,6 +172,7 @@ def _insert_file(
     language = detect_language(source.path)
     symbols: list[Symbol] = []
     imports = []
+    references: list[RawRef] = []
     parse_failed = False
     if language == "python":
         parsed = parse_python(source.text, config.chunk)
@@ -173,13 +183,14 @@ def _insert_file(
         else:
             parser = "python-ast"
             symbols, imports, chunks = parsed.symbols, parsed.imports, parsed.chunks
+            references = parsed.references
     else:
         parser = "text"
         chunks = text_chunks(source.text, config.chunk)
 
     cursor = conn.execute(
-        "INSERT INTO files(path, sha256, size_bytes, line_count, language, parser) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO files(path, sha256, size_bytes, line_count, language, parser, module, "
+        "is_test) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (
             source.path,
             source.sha256,
@@ -187,16 +198,23 @@ def _insert_file(
             len(split_lines(source.text)),
             language,
             parser,
+            _canonical_module(source.path),
+            int(is_test_file(source.path)),
         ),
     )
     file_id = cursor.lastrowid
+    symbol_ids = assign_symbol_ids(source.path, [s.qualname for s in symbols])
     conn.executemany(
-        "INSERT INTO symbols(file_id, name, qualname, kind, start_line, end_line, docstring) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO symbols(file_id, symbol_id, name, qualname, kind, start_line, end_line, "
+        "docstring) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            (file_id, s.name, s.qualname, s.kind, s.start_line, s.end_line, s.docstring)
-            for s in symbols
+            (file_id, sid, s.name, s.qualname, s.kind, s.start_line, s.end_line, s.docstring)
+            for sid, s in zip(symbol_ids, symbols, strict=True)
         ],
+    )
+    conn.executemany(
+        "INSERT INTO refs(file_id, scope, kind, expr, line) VALUES (?, ?, ?, ?, ?)",
+        [(file_id, r.scope, r.kind, r.expr, r.line) for r in references],
     )
     conn.executemany(
         "INSERT INTO imports(file_id, module, name, alias, line) VALUES (?, ?, ?, ?, ?)",
@@ -287,6 +305,7 @@ def _index_in_transaction(
         signatures = _apply_scan(conn, root, config, stats, report, ignore)
         problems = _snapshot_problems(root, config, stats, signatures, head, ignore)
         if not problems:
+            report.graph_edges = rebuild_graph(conn)
             conn.execute("RELEASE scan_attempt")
             break
         conn.execute("ROLLBACK TO scan_attempt")
@@ -443,6 +462,13 @@ def index_summary(repo_path: Path, db_path: Path | None = None) -> dict[str, Any
                 ),
                 "symbols_by_kind": counts(
                     "SELECT kind, COUNT(*) FROM symbols GROUP BY kind ORDER BY kind"
+                ),
+                "edges_by_status": counts(
+                    "SELECT status, COUNT(*) FROM edges GROUP BY status ORDER BY status"
+                ),
+                "resolved_edges_by_kind": counts(
+                    "SELECT kind, COUNT(*) FROM edges WHERE status = 'resolved' "
+                    "GROUP BY kind ORDER BY kind"
                 ),
                 "last_run": {
                     key: last_run.get(key)

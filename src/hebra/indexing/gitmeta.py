@@ -203,3 +203,63 @@ def list_git_files(
                 "filtering"
             )
     return GitListing(paths, truncated, entries_read)
+
+
+def _git_env() -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+    return env
+
+
+def git_output(repo_root: Path, *args: str) -> str | None:
+    """Stdout of a read-only git command, or None if git is missing or it fails.
+
+    Same safety settings as :func:`list_git_files`: fixed argv, no shell,
+    sanitised environment, ``core.fsmonitor`` disabled, bounded runtime.
+    """
+    git = shutil.which("git")
+    if git is None or find_git_dir(repo_root) is None:
+        return None
+    try:
+        result = subprocess.run(
+            [git, "-c", "core.fsmonitor=false", *args],
+            cwd=repo_root,
+            env=_git_env(),
+            capture_output=True,
+            timeout=_GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.decode("utf-8", errors="replace").strip()
+
+
+def root_commits(repo_root: Path) -> list[str]:
+    """Sorted parentless commits reachable from HEAD (the repository's roots)."""
+    out = git_output(repo_root, "rev-list", "--max-parents=0", "HEAD")
+    return sorted(line for line in (out or "").splitlines() if _HEX_SHA.match(line))
+
+
+def is_ancestor(repo_root: Path, revision: str) -> bool | None:
+    """Whether ``revision`` is in HEAD's history; None if it cannot be determined."""
+    if not _HEX_SHA.match(revision):
+        return None
+    git = shutil.which("git")
+    if git is None or find_git_dir(repo_root) is None:
+        return None
+    try:
+        result = subprocess.run(
+            [git, "-c", "core.fsmonitor=false", "merge-base", "--is-ancestor", revision, "HEAD"],
+            cwd=repo_root,
+            env=_git_env(),
+            capture_output=True,
+            timeout=_GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    # 0: ancestor, 1: not an ancestor, anything else (e.g. unknown commit): treat as not.
+    return result.returncode == 0

@@ -1,0 +1,144 @@
+{
+  "accuracy": 1.0,
+  "correct": 15,
+  "finished_at": "2026-10-31T05:05:04+00:00",
+  "results": [
+    {
+      "correct": true,
+      "expected_reference_status": "current",
+      "expected_status": "current",
+      "reference_status": "current",
+      "revision_note": "",
+      "scenario": "unchanged",
+      "status": "current"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "current",
+      "expected_status": "current",
+      "reference_status": "current",
+      "revision_note": "",
+      "scenario": "edit elsewhere",
+      "status": "current"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "changed",
+      "expected_status": "stale",
+      "reference_status": "changed",
+      "revision_note": "",
+      "scenario": "edit referenced lines",
+      "status": "stale"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "moved",
+      "expected_status": "stale",
+      "reference_status": "moved",
+      "revision_note": "",
+      "scenario": "lines moved",
+      "status": "stale"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "missing",
+      "expected_status": "stale",
+      "reference_status": "missing",
+      "revision_note": "",
+      "scenario": "file deleted",
+      "status": "stale"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "renamed",
+      "expected_status": "stale",
+      "reference_status": "renamed",
+      "revision_note": "",
+      "scenario": "file renamed",
+      "status": "stale"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "replaced",
+      "expected_status": "stale",
+      "reference_status": "replaced",
+      "revision_note": "",
+      "scenario": "replaced by symlink",
+      "status": "stale"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "changed",
+      "expected_status": "stale",
+      "reference_status": "changed",
+      "revision_note": "created at b9ee16b88288; HEAD is now 4584dd0cabfe; that commit is not in HEAD's history (branch switch or reset)",
+      "scenario": "branch, lines differ",
+      "status": "stale"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "current",
+      "expected_status": "current",
+      "reference_status": "current",
+      "revision_note": "created at b9ee16b88288; HEAD is now d20133ab649a; that commit is not in HEAD's history (branch switch or reset)",
+      "scenario": "branch, lines same",
+      "status": "current"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "current",
+      "expected_status": "current",
+      "reference_status": "current",
+      "revision_note": "created at b9ee16b88288; HEAD is now d20133ab649a; that commit is not in HEAD's history (branch switch or reset)",
+      "scenario": "reset, lines same",
+      "status": "current"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "changed",
+      "expected_status": "stale",
+      "reference_status": "changed",
+      "revision_note": "created at b9ee16b88288; HEAD is now d20133ab649a; that commit is not in HEAD's history (branch switch or reset)",
+      "scenario": "reset, lines differ",
+      "status": "stale"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": null,
+      "expected_status": "decision",
+      "reference_status": null,
+      "revision_note": "",
+      "scenario": "decision",
+      "status": "decision"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": "changed",
+      "expected_status": "decision",
+      "reference_status": "changed",
+      "revision_note": "",
+      "scenario": "decision, reference changed",
+      "status": "decision"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": null,
+      "expected_status": "unverifiable",
+      "reference_status": null,
+      "revision_note": "",
+      "scenario": "no references",
+      "status": "unverifiable"
+    },
+    {
+      "correct": true,
+      "expected_reference_status": null,
+      "expected_status": "refused",
+      "reference_status": null,
+      "revision_note": "",
+      "scenario": "store from another repository",
+      "status": "refused"
+    }
+  ],
+  "scenarios": 15,
+  "schema": "hebra.bench.memory-freshness/v1"
+}

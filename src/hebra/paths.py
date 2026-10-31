@@ -52,6 +52,7 @@ from hebra.errors import IndexPathError, OutputPathError, RepositoryError
 
 INDEX_DIR_NAME = ".hebra"
 INDEX_FILE_NAME = "index.sqlite3"
+MEMORY_FILE_NAME = "memory.sqlite3"
 MARKER_NAME = ".gitignore"
 SQLITE_SIDECAR_SUFFIXES = ("-journal", "-wal", "-shm")
 
@@ -87,6 +88,17 @@ def index_location(repo_root: Path, db_path: Path | None = None) -> IndexLocatio
         # so prepare_index can reject it.
         return IndexLocation(Path(os.path.abspath(db_path)), repo_local=False)  # noqa: PTH100
     return IndexLocation(repo_root / INDEX_DIR_NAME / INDEX_FILE_NAME, repo_local=True)
+
+
+def memory_location(repo_root: Path, db_path: Path | None = None) -> IndexLocation:
+    """Where repository memory lives: ``db_path`` if given, else ``.hebra/memory.sqlite3``.
+
+    Memory is user data, kept apart from the rebuildable index so an index
+    rebuild never discards it. The same path-safety policy applies.
+    """
+    if db_path is not None:
+        return IndexLocation(Path(os.path.abspath(db_path)), repo_local=False)  # noqa: PTH100
+    return IndexLocation(repo_root / INDEX_DIR_NAME / MEMORY_FILE_NAME, repo_local=True)
 
 
 def _identity(info: os.stat_result) -> FileIdentity:
@@ -200,7 +212,7 @@ def _prepare_repo_local(location: IndexLocation, create: bool) -> PreparedIndex:
             _ensure_marker(dir_fd, index_dir / MARKER_NAME)
         flags = os.O_RDWR | os.O_CREAT if create else os.O_RDONLY
         try:
-            fd = _open_nofollow(INDEX_FILE_NAME, flags, dir_fd, db)
+            fd = _open_nofollow(db.name, flags, dir_fd, db)
         except FileNotFoundError:
             return PreparedIndex(location, dir_identity, None)
         try:

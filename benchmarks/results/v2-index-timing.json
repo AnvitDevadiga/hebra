@@ -1,0 +1,65 @@
+{
+  "finished_at": "2026-10-31T05:06:44+00:00",
+  "hebra_commit": "bbfad0c2e4c36ea66acc3b1f533eb94cb8228e87",
+  "platform": {
+    "machine": "arm64",
+    "python": "3.12.14",
+    "system": "macOS-27.2-arm64-arm-64bit"
+  },
+  "repetitions": 3,
+  "results": {
+    "attrs": {
+      "chunks": 1342,
+      "commit": "c8bb9bfaa2843e7844b5bb13bed4370b51feec4f",
+      "files_indexed": 134,
+      "graph_edges": {
+        "ambiguous": 1396,
+        "dynamic": 135,
+        "resolved": 3894,
+        "uncertain": 66,
+        "unresolved": 901
+      },
+      "seconds_median": 0.3235,
+      "seconds_samples": [
+        0.3072,
+        0.3416,
+        0.3235
+      ]
+    },
+    "click": {
+      "chunks": 1582,
+      "commit": "2247b35ea1c47c727d7a06e51fa280e12a863ff6",
+      "files_indexed": 175,
+      "graph_edges": {
+        "dynamic": 255,
+        "resolved": 6995,
+        "uncertain": 742,
+        "unresolved": 1610
+      },
+      "seconds_median": 0.4536,
+      "seconds_samples": [
+        0.4536,
+        0.4525,
+        0.4874
+      ]
+    },
+    "requests": {
+      "chunks": 919,
+      "commit": "3c7baaa05ab4aa49cc819ce3a819d260de19c157",
+      "files_indexed": 115,
+      "graph_edges": {
+        "dynamic": 125,
+        "resolved": 2276,
+        "uncertain": 294,
+        "unresolved": 921
+      },
+      "seconds_median": 0.2323,
+      "seconds_samples": [
+        0.2323,
+        0.2347,
+        0.2316
+      ]
+    }
+  },
+  "schema": "hebra.bench.index-timing/v1"
+}

@@ -1,0 +1,37 @@
+{
+  "dataset": "hebra-localization-v1",
+  "description": "Fix-commit localization tasks mined from pinned open-source Python repositories. Task text is the commit subject; labels are the functions and methods the commit modified, resolved at the parent commit.",
+  "repositories": [
+    {"name": "click", "url": "https://github.com/pallets/click.git", "pinned_head": "2247b35ea1c47c727d7a06e51fa280e12a863ff6"},
+    {"name": "requests", "url": "https://github.com/psf/requests.git", "pinned_head": "3c7baaa05ab4aa49cc819ce3a819d260de19c157"},
+    {"name": "attrs", "url": "https://github.com/python-attrs/attrs.git", "pinned_head": "c8bb9bfaa2843e7844b5bb13bed4370b51feec4f"}
+  ],
+  "mining": {
+    "max_commits_scanned": 3000,
+    "max_tasks_per_repo": 40,
+    "min_subject_words": 4,
+    "max_source_files_changed": 3,
+    "min_target_symbols": 1,
+    "max_target_symbols": 3,
+    "excluded_subject_pattern": "^(merge|bump|release|version|revert|prepare|update (the )?changelog|changelog|docs?\\b|typo|format|style|lint|pre-commit|ci\\b|build\\b|chore|tests?\\b|add tests?\\b|update copyright)",
+    "excluded_path_prefixes": ["docs/", "examples/", "benchmarks/", "scripts/"],
+    "dev_fraction_per_10": 3
+  },
+  "evaluation": {
+    "tokenizer": "o200k_base",
+    "budgets": [1000, 2000, 4000, 8000],
+    "retrieval_limit": 50,
+    "candidates": 50,
+    "recall_at": [5, 10, 20],
+    "bootstrap_samples": 2000,
+    "seed": 20261031,
+    "configs": {
+      "truncation": {"kind": "truncation"},
+      "bm25_greedy": {"retrieval": "bm25", "strategy": "greedy"},
+      "graph_greedy": {"retrieval": "bm25_graph", "strategy": "greedy"},
+      "hebra_optimized": {"retrieval": "bm25_graph", "strategy": "optimized"},
+      "ablation_no_graph": {"retrieval": "bm25", "strategy": "optimized"},
+      "ablation_no_coverage": {"retrieval": "bm25_graph", "strategy": "optimized", "weights": {"beta": 0.0, "gamma": 0.0}}
+    }
+  }
+}

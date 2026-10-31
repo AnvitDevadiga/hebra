@@ -1,0 +1,74 @@
+{
+  "budgets": [
+    1000,
+    2000,
+    4000,
+    8000
+  ],
+  "config_sha256": "d0e02bce42c1e18fd85f9551a46a09b6d6e36b24ffce874fedf5bcc3a552a4e2",
+  "configs": {
+    "ablation_no_coverage": {
+      "retrieval": "bm25_graph",
+      "strategy": "optimized",
+      "weights": {
+        "beta": 0.0,
+        "gamma": 0.0
+      }
+    },
+    "ablation_no_graph": {
+      "retrieval": "bm25",
+      "strategy": "optimized"
+    },
+    "bm25_greedy": {
+      "retrieval": "bm25",
+      "strategy": "greedy"
+    },
+    "graph_greedy": {
+      "retrieval": "bm25_graph",
+      "strategy": "greedy"
+    },
+    "hebra_optimized": {
+      "retrieval": "bm25_graph",
+      "strategy": "optimized"
+    },
+    "truncation": {
+      "kind": "truncation"
+    }
+  },
+  "dataset": "hebra-localization-v1",
+  "finished_at": "2026-10-31T05:05:03+00:00",
+  "hebra_commit": "98e9dc5a1a86dff2260aa80b19207dd822fe0230",
+  "hebra_tree_dirty": false,
+  "hebra_version": "0.1.0",
+  "platform": {
+    "machine": "arm64",
+    "processor": "arm",
+    "python": "3.12.14",
+    "system": "macOS-27.2-arm64-arm-64bit"
+  },
+  "records_sha256": "0c7d874d505f81f2e95de98bccb6abf99f7358060b533fcf0d288eeac470a7ac",
+  "repositories": {
+    "attrs": {
+      "pinned_head": "c8bb9bfaa2843e7844b5bb13bed4370b51feec4f",
+      "url": "https://github.com/python-attrs/attrs.git"
+    },
+    "click": {
+      "pinned_head": "2247b35ea1c47c727d7a06e51fa280e12a863ff6",
+      "url": "https://github.com/pallets/click.git"
+    },
+    "requests": {
+      "pinned_head": "3c7baaa05ab4aa49cc819ce3a819d260de19c157",
+      "url": "https://github.com/psf/requests.git"
+    }
+  },
+  "schema": "hebra.bench.manifest/v1",
+  "seed": 20261031,
+  "split": "dev",
+  "started_at": "2026-10-31T05:04:39+00:00",
+  "status": "complete",
+  "task_count": 30,
+  "tasks_file": "benchmarks/tasks/v1.jsonl",
+  "tasks_sha256": "4a13c525699866e44bf940606b768f2e7914eded2e5739c27b273fcb9047fbdf",
+  "tokenizer": "o200k_base",
+  "weights_override": null
+}

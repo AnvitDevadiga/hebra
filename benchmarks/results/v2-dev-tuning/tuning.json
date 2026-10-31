@@ -1,0 +1,466 @@
+{
+  "budgets": [
+    1000,
+    2000,
+    4000,
+    8000
+  ],
+  "chosen": {
+    "mean_symbol_recall": 0.375,
+    "weights": [
+      1.0,
+      0.0,
+      0.5,
+      2.0
+    ]
+  },
+  "finished_at": "2026-10-31T05:01:06+00:00",
+  "grid": [
+    {
+      "mean_symbol_recall": 0.375,
+      "weights": [
+        1.0,
+        0.0,
+        0.5,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.366667,
+      "weights": [
+        1.0,
+        0.0,
+        0.0,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.366667,
+      "weights": [
+        1.0,
+        0.0,
+        0.5,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.366667,
+      "weights": [
+        1.0,
+        0.25,
+        0.5,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.366667,
+      "weights": [
+        1.0,
+        0.0,
+        0.25,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.366667,
+      "weights": [
+        1.0,
+        0.25,
+        0.5,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.3625,
+      "weights": [
+        1.0,
+        0.0,
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.358333,
+      "weights": [
+        1.0,
+        0.5,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.358333,
+      "weights": [
+        1.0,
+        1.0,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.358333,
+      "weights": [
+        1.0,
+        0.25,
+        0.0,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.358333,
+      "weights": [
+        1.0,
+        0.25,
+        0.25,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.358333,
+      "weights": [
+        1.0,
+        0.25,
+        0.25,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.355556,
+      "weights": [
+        1.0,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.352778,
+      "weights": [
+        1.0,
+        1.0,
+        0.5,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.35,
+      "weights": [
+        1.0,
+        0.0,
+        0.25,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.35,
+      "weights": [
+        1.0,
+        0.5,
+        0.5,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.347222,
+      "weights": [
+        1.0,
+        0.0,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.344444,
+      "weights": [
+        1.0,
+        1.0,
+        0.25,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.344444,
+      "weights": [
+        1.0,
+        1.0,
+        0.5,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.344444,
+      "weights": [
+        1.0,
+        0.5,
+        0.25,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        0.25,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        0.25,
+        0.25,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        0.5,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        0.5,
+        0.25,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        1.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        1.0,
+        0.25,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        0.5,
+        0.25,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        0.5,
+        0.5,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.341667,
+      "weights": [
+        1.0,
+        1.0,
+        0.25,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.338889,
+      "weights": [
+        1.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.338889,
+      "weights": [
+        1.0,
+        0.0,
+        0.25,
+        1.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.3375,
+      "weights": [
+        1.0,
+        0.25,
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.336111,
+      "weights": [
+        1.0,
+        1.0,
+        0.0,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.333333,
+      "weights": [
+        1.0,
+        0.5,
+        0.0,
+        1.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.323611,
+      "weights": [
+        1.0,
+        1.0,
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.322222,
+      "weights": [
+        1.0,
+        0.0,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.322222,
+      "weights": [
+        1.0,
+        0.0,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.320833,
+      "weights": [
+        1.0,
+        0.5,
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        0.25,
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        0.25,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        0.25,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        0.5,
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        0.5,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        1.0,
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        1.0,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.311111,
+      "weights": [
+        1.0,
+        1.0,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "mean_symbol_recall": 0.305556,
+      "weights": [
+        1.0,
+        0.0,
+        0.0,
+        0.5
+      ]
+    }
+  ],
+  "grid_version": 2,
+  "hebra_commit": "9cc71abb8b330ce116d9c682b4cab1e974a81a8b",
+  "records_sha256": "06a7f9cd05fbb1d181318f5360b6124aca58e1802244403b697f49b13de96190",
+  "rule": "max mean symbol recall; ties: smaller beta + gamma, then smaller rank_decay",
+  "schema": "hebra.bench.tuning/v1",
+  "split": "dev",
+  "tasks": 30,
+  "tasks_sha256": "4a13c525699866e44bf940606b768f2e7914eded2e5739c27b273fcb9047fbdf",
+  "weights_order": [
+    "alpha",
+    "beta",
+    "gamma",
+    "rank_decay"
+  ]
+}

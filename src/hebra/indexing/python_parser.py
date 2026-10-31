@@ -12,6 +12,7 @@ import warnings
 from dataclasses import dataclass
 
 from hebra.config import ChunkConfig
+from hebra.graph.extract import RawRef, extract_references
 from hebra.indexing.chunking import Chunk, split_lines, window_chunks
 
 _DOCSTRING_MAX_CHARS = 2_000
@@ -41,6 +42,7 @@ class ParsedPython:
     symbols: list[Symbol]
     imports: list[Import]
     chunks: list[Chunk]
+    references: list[RawRef]
 
 
 def _span(node: _DefNode) -> tuple[int, int]:
@@ -149,6 +151,7 @@ def parse_python(text: str, config: ChunkConfig) -> ParsedPython | None:
     symbols: list[Symbol] = []
     try:
         _collect_symbols(tree, "", False, symbols)
+        references = extract_references(tree)
     except RecursionError:
         return None
 
@@ -161,4 +164,4 @@ def parse_python(text: str, config: ChunkConfig) -> ParsedPython | None:
     chunks.sort(key=lambda c: (c.start_line, c.end_line))
 
     symbols.sort(key=lambda s: (s.start_line, s.end_line, s.qualname))
-    return ParsedPython(symbols, _collect_imports(tree), chunks)
+    return ParsedPython(symbols, _collect_imports(tree), chunks, references)

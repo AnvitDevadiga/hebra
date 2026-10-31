@@ -64,6 +64,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "PTH"]
+# Benchmark scripts run git from PATH and use a seeded, non-cryptographic RNG
+# for bootstrap intervals.
+"benchmarks/**" = ["S603", "S607", "S311"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
