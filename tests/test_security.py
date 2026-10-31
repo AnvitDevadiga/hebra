@@ -842,8 +842,8 @@ def test_f5_interrupted_write_keeps_original(tmp_path: Path, monkeypatch, failur
 def test_f5_both_rename_strategies(tmp_path: Path, monkeypatch, use_renameat: bool) -> None:
     from hebra import paths
 
-    if use_renameat and os.replace not in os.supports_dir_fd:
-        pytest.skip("renameat() not exposed on this platform")
+    if use_renameat and not paths._HAVE_REPLACE_DIR_FD:
+        pytest.skip("renameat() not available on this platform")
     monkeypatch.setattr(paths, "_HAVE_REPLACE_DIR_FD", use_renameat)
     target = tmp_path / "out.md"
     paths.write_output_file(target, "café\n".encode())

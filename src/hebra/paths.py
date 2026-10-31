@@ -59,8 +59,9 @@ _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
 _O_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
 _O_NONBLOCK = getattr(os, "O_NONBLOCK", 0)
 _HAVE_DIR_FD = os.open in os.supports_dir_fd and bool(_O_NOFOLLOW and _O_DIRECTORY)
-# renameat() is not exposed on every POSIX build (for example some macOS ones).
-_HAVE_REPLACE_DIR_FD = os.replace in os.supports_dir_fd
+# os.replace() and os.rename() both use renameat() for dir_fd arguments, but
+# CPython only lists os.rename in os.supports_dir_fd, so test that one.
+_HAVE_REPLACE_DIR_FD = os.rename in os.supports_dir_fd
 
 FileIdentity = tuple[int, int]  # (st_dev, st_ino)
 
@@ -310,9 +311,9 @@ def write_output_file(path: Path, data: bytes) -> None:
 
     Limits: if another process swaps the destination between the check and the
     rename, the rename replaces whatever entry is then present (but never the
-    target of a symlink). Where ``renameat`` is unavailable (some macOS
-    builds), the final rename is by path after re-checking the parent's
-    identity, leaving a narrow window for a concurrent parent swap. If the
+    target of a symlink). Where ``renameat`` is unavailable, the final rename
+    is by path after re-checking the parent's identity, leaving a narrow
+    window for a concurrent parent swap. If the
     process is killed outright, a hidden ``.<name>.<random>.tmp`` file can be
     left behind.
     """
