@@ -6,10 +6,18 @@ from pathlib import Path
 import pytest
 
 from conftest import SAMPLE_PY, fs_index, git, requires_git
-from hebra.config import default_index_path
-from hebra.errors import IndexNotFoundError, IndexVersionError, RepositoryError
+from hebra.errors import (
+    IndexDatabaseError,
+    IndexNotFoundError,
+    IndexVersionError,
+    RepositoryError,
+)
 from hebra.indexing import index_repository, index_summary
 from hebra.indexing.store import SCHEMA_VERSION
+
+
+def default_index_path(root: Path) -> Path:
+    return root / ".hebra" / "index.sqlite3"
 
 
 def table_counts(root: Path) -> dict[str, int]:
@@ -42,7 +50,7 @@ def test_empty_repository(make_repo) -> None:
     report = fs_index(root)
     assert report.files_indexed == 0
     assert table_counts(root)["chunks"] == 0
-    assert index_summary(default_index_path(root))["files"] == 0
+    assert index_summary(root)["files"] == 0
 
 
 def test_reindex_unchanged_does_not_duplicate(make_repo) -> None:
@@ -94,7 +102,7 @@ def test_syntax_error_falls_back_to_text(make_repo) -> None:
     report = fs_index(root)
     assert report.python_parse_failures == 1
     assert any("failed to parse" in w for w in report.warnings)
-    summary = index_summary(default_index_path(root))
+    summary = index_summary(root)
     assert summary["files_by_parser"] == {"text-fallback": 1}
     assert summary["symbols"] == 0
 
@@ -102,7 +110,7 @@ def test_syntax_error_falls_back_to_text(make_repo) -> None:
 def test_summary_reports_languages_and_kinds(make_repo) -> None:
     root = make_repo({"a.py": SAMPLE_PY, "notes.md": "# Notes\n"})
     fs_index(root)
-    summary = index_summary(default_index_path(root))
+    summary = index_summary(root)
     assert summary["files_by_language"] == {"markdown": 1, "python": 1}
     assert summary["symbols_by_kind"]["method"] == 3
     assert summary["head_revision"] is None
@@ -119,7 +127,7 @@ def test_missing_repository_path(tmp_path: Path) -> None:
 
 def test_summary_without_index(tmp_path: Path) -> None:
     with pytest.raises(IndexNotFoundError):
-        index_summary(default_index_path(tmp_path))
+        index_summary(tmp_path)
 
 
 def test_schema_mismatch_rebuilds_on_index_and_errors_on_read(make_repo) -> None:
@@ -131,10 +139,10 @@ def test_schema_mismatch_rebuilds_on_index_and_errors_on_read(make_repo) -> None
     conn.commit()
     conn.close()
     with pytest.raises(IndexVersionError):
-        index_summary(db)
+        index_summary(root)
     report = fs_index(root)
     assert report.files_added == 1
-    assert index_summary(db)["schema_version"] == SCHEMA_VERSION
+    assert index_summary(root)["schema_version"] == SCHEMA_VERSION
 
 
 def test_corrupt_index_file(make_repo) -> None:
@@ -142,8 +150,12 @@ def test_corrupt_index_file(make_repo) -> None:
     db = default_index_path(root)
     db.parent.mkdir()
     db.write_bytes(b"this is not sqlite" * 100)
-    with pytest.raises(IndexVersionError):
-        index_summary(db)
+    with pytest.raises(IndexDatabaseError, match="not a usable SQLite database"):
+        index_summary(root)
+    # Writing must fail closed too, leaving the file untouched.
+    with pytest.raises(IndexDatabaseError):
+        fs_index(root)
+    assert db.read_bytes() == b"this is not sqlite" * 100
 
 
 @requires_git
@@ -152,7 +164,7 @@ def test_records_git_head_revision(make_git_repo) -> None:
     report = index_repository(root)
     assert report.file_source == "git"
     assert report.head_revision == git(root, "rev-parse", "HEAD")
-    assert index_summary(default_index_path(root))["head_revision"] == report.head_revision
+    assert index_summary(root)["head_revision"] == report.head_revision
 
 
 @requires_git

@@ -3,10 +3,13 @@
 Policy (Phase 1, deliberately simple):
 
 1. Retrieve the top-N BM25 candidates for the task.
-2. Walk them in rank order. Skip exact duplicate content. Append a fragment
+2. Exclude candidates whose source file no longer matches the indexed
+   snapshot (``SearchHit.source_status != "current"``): their content and
+   line numbers would be wrong.
+3. Walk the rest in rank order. Skip exact duplicate content. Append a fragment
    only if the *whole rendered document* still fits the budget, re-counted
    with the real tokenizer after each addition. Fragments are never truncated.
-3. Verify the final document against the budget before returning it.
+4. Verify the final document against the budget before returning it.
 
 Because acceptance is decided on the full rendered document, the budget
 guarantee includes all formatting overhead and any token merges across
@@ -23,6 +26,7 @@ from hebra import __version__
 from hebra.context.render import render_fragment, render_header, selection_reason
 from hebra.context.tokenizer import DEFAULT_ENCODING, SUPPORTED_ENCODINGS, get_token_counter
 from hebra.errors import BudgetError
+from hebra.paths import resolve_repository
 from hebra.retrieval.search import SearchHit, search
 
 DEFAULT_CANDIDATES = 50
@@ -60,6 +64,8 @@ class PackResult:
     header_tokens: int
     used_tokens: int
     candidates: int
+    files_checked: int
+    stale_excluded: int
     terms: list[str]
     selected: list[Fragment]
     excluded: list[Exclusion]
@@ -77,6 +83,7 @@ class PackResult:
                 "symbol": hit.symbol,
                 "score": hit.score,
                 "content_sha256": hit.content_sha256,
+                "source_status": hit.source_status,
             }
 
         return {
@@ -104,6 +111,11 @@ class PackResult:
                 "fragment_tokens": self.used_tokens - self.header_tokens,
             },
             "candidates_considered": self.candidates,
+            "source_check": {
+                "policy": "exclude-stale",
+                "files_checked": self.files_checked,
+                "stale_candidates_excluded": self.stale_excluded,
+            },
             "selected": [
                 {
                     **ref(f.hit),
@@ -140,9 +152,18 @@ def pack_context(
     """Select ranked fragments for ``task`` whose rendered Markdown fits ``budget``."""
     validate_budget(budget)
     counter = get_token_counter(encoding)
-    response = search(repo_root, task, limit=candidates, db_path=db_path)
+    root = resolve_repository(repo_root)
+    response = search(root, task, limit=candidates, db_path=db_path)
 
-    document = render_header(task, repo_root.name, response.index_revision, budget, encoding)
+    files_checked = len({hit.path for hit in response.hits})
+    stale_count = sum(1 for hit in response.hits if hit.source_status != "current")
+    source_check = (
+        f"{files_checked} candidate file(s) verified against the working tree; "
+        f"{stale_count} stale candidate(s) excluded"
+    )
+    document = render_header(
+        task, root.name, response.index_revision, budget, encoding, source_check
+    )
     header_tokens = counter.count(document)
     if header_tokens > budget:
         raise BudgetError(
@@ -157,6 +178,15 @@ def pack_context(
     total = len(response.hits)
 
     for hit in response.hits:
+        if hit.source_status != "current":
+            excluded.append(
+                Exclusion(
+                    hit,
+                    f"source file is {hit.source_status} since indexing, so its content and "
+                    "line numbers are not current; re-run `hebra index`",
+                )
+            )
+            continue
         duplicate_of = seen_content.get(hit.content_sha256)
         if duplicate_of is not None:
             excluded.append(
@@ -202,12 +232,14 @@ def pack_context(
     warnings = list(response.warnings)
     if not response.hits:
         warnings.append("no indexed fragments matched the task terms")
+    elif not selected and stale_count == total:
+        warnings.append("all matching fragments come from files changed since indexing")
     elif not selected:
         warnings.append("matching fragments were found but none fit within the budget")
 
     return PackResult(
         task=task,
-        repo_root=str(repo_root),
+        repo_root=str(root),
         index_path=response.index_path,
         index_revision=response.index_revision,
         current_revision=response.current_revision,
@@ -216,6 +248,8 @@ def pack_context(
         header_tokens=header_tokens,
         used_tokens=used,
         candidates=total,
+        files_checked=files_checked,
+        stale_excluded=stale_count,
         terms=response.terms,
         selected=selected,
         excluded=excluded,

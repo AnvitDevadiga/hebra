@@ -132,3 +132,26 @@ def test_defs_inside_conditional_blocks_are_found() -> None:
     parsed = parse_python(source, CONFIG)
     assert parsed is not None
     assert [s.start_line for s in parsed.symbols if s.name == "f"] == [3, 6]
+
+
+def test_l1_oversized_single_line_is_split_with_line_provenance() -> None:
+    from hebra.indexing.chunking import text_chunks
+
+    config = ChunkConfig(max_chars=1000)
+    long_line = "".join(f"token{i}," for i in range(2000))  # ~15k characters
+    chunks = text_chunks(f"header\n{long_line}\nfooter\n", config)
+    pieces = [c for c in chunks if c.kind == "text-line-part"]
+    assert all(len(c.content) <= 1000 for c in chunks)
+    assert all((c.start_line, c.end_line) == (2, 2) for c in pieces)
+    assert "".join(c.content for c in pieces) == long_line
+    assert [c.start_line for c in chunks if c.kind == "text"] == [1, 3]
+
+
+def test_l1_oversized_line_inside_function_keeps_symbol() -> None:
+    source = "def blob():\n    data = '" + "x" * 20_000 + "'\n    return data\n"
+    parsed = parse_python(source, ChunkConfig(max_chars=4000))
+    assert parsed is not None
+    assert all(len(c.content) <= 4000 for c in parsed.chunks)
+    assert all(c.symbol == "blob" for c in parsed.chunks)
+    assert {c.kind for c in parsed.chunks} == {"function-part", "function-line-part"}
+    assert all(c.start_line == c.end_line == 2 for c in parsed.chunks if "line-part" in c.kind)

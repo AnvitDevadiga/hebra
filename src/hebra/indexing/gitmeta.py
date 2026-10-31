@@ -2,9 +2,11 @@
 
 The HEAD revision is read directly from files under ``.git`` so it works
 without a ``git`` binary and never runs repository-configured programs.
-File listing uses ``git ls-files`` (when available) because it is the only
-reliable way to honour ``.gitignore``; it runs with a fixed argv, no shell,
-a sanitised environment, and ``core.fsmonitor`` disabled.
+File listing uses ``git ls-files`` because it is the only reliable way to
+honour ``.gitignore``; it runs with a fixed argv, no shell, a sanitised
+environment, and ``core.fsmonitor`` disabled. If a repository has Git
+metadata but listing fails, Hebra stops rather than walking the filesystem,
+which would expose ignored files.
 """
 
 from __future__ import annotations
@@ -13,7 +15,12 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
+import threading
+from dataclasses import dataclass
 from pathlib import Path
+
+from hebra.errors import GitError
 
 _HEX_SHA = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
 _SAFE_REF = re.compile(r"^refs/[A-Za-z0-9._/-]+$")
@@ -95,43 +102,78 @@ def read_head_revision(repo_root: Path) -> str | None:
     return head if _HEX_SHA.match(head) else None
 
 
-def list_git_files(repo_root: Path) -> list[str] | None:
-    """List tracked plus untracked-but-not-ignored files, relative to ``repo_root``.
+def has_git_metadata(start: Path) -> bool:
+    """True if ``start`` or a parent contains a ``.git`` entry, valid or not."""
+    return any(os.path.lexists(candidate / ".git") for candidate in (start, *start.parents))
 
-    Returns ``None`` when ``git`` is unavailable or the command fails, so the
-    caller can fall back to a filesystem walk.
+
+@dataclass(frozen=True)
+class GitListing:
+    paths: list[str]
+    truncated: bool  # stopped after ``max_entries`` paths
+
+
+def list_git_files(
+    repo_root: Path, *, include_untracked: bool = False, max_entries: int = 200_000
+) -> GitListing:
+    """List files Git knows about under ``repo_root``, relative to it.
+
+    By default only tracked files are listed. With ``include_untracked``,
+    untracked files that are not ignored by ``.gitignore`` are added. Output is
+    streamed and reading stops after ``max_entries`` paths.
+
+    Raises :class:`GitError` if ``git`` is missing or the listing fails; callers
+    must not fall back to an unfiltered filesystem walk in that case.
     """
     git = shutil.which("git")
-    if git is None or find_git_dir(repo_root) is None:
-        return None
+    if git is None:
+        raise GitError(
+            f"{repo_root} contains Git metadata but the `git` executable was not found; install "
+            "Git, or pass --no-git to walk the filesystem without .gitignore filtering"
+        )
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GIT_OPTIONAL_LOCKS"] = "0"
-    argv = [
-        git,
-        "-c",
-        "core.fsmonitor=false",
-        "-c",
-        "core.quotepath=off",
-        "ls-files",
-        "-z",
-        "--cached",
-        "--others",
-        "--exclude-standard",
-    ]
-    try:
-        result = subprocess.run(
-            argv,
-            cwd=repo_root,
-            env=env,
-            capture_output=True,
-            timeout=_GIT_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode != 0:
-        return None
-    raw = result.stdout.decode("utf-8", errors="surrogateescape")
-    # --cached and --others can both report a path during merges; dedupe.
-    return sorted({p for p in raw.split("\0") if p})
+    argv = [git, "-c", "core.fsmonitor=false", "-c", "core.quotepath=off", "ls-files", "-z"]
+    argv += ["--cached", "--others", "--exclude-standard"] if include_untracked else ["--cached"]
+
+    seen: set[str] = set()
+    truncated = False
+    with tempfile.TemporaryFile() as err:
+        try:
+            proc = subprocess.Popen(
+                argv, cwd=repo_root, env=env, stdout=subprocess.PIPE, stderr=err
+            )
+        except OSError as exc:
+            raise GitError(f"could not run git in {repo_root}: {exc}") from exc
+        timer = threading.Timer(_GIT_TIMEOUT_SECONDS, proc.kill)
+        timer.start()
+        try:
+            assert proc.stdout is not None
+            pending = b""
+            while chunk := proc.stdout.read(65536):
+                *entries, pending = (pending + chunk).split(b"\0")
+                for entry in entries:
+                    # --cached and --others can both report a path during merges.
+                    if entry:
+                        seen.add(entry.decode("utf-8", errors="surrogateescape"))
+                if len(seen) >= max_entries:
+                    truncated = True
+                    proc.kill()
+                    break
+            returncode = proc.wait()
+        finally:
+            timer.cancel()
+            if proc.stdout is not None:
+                proc.stdout.close()
+        if not truncated and returncode != 0:
+            err.seek(0)
+            detail = err.read(2000).decode("utf-8", errors="replace").strip()
+            raise GitError(
+                f"`git ls-files` failed in {repo_root} (exit {returncode}): "
+                f"{detail or 'no error output'}. Fix the repository (for example `git status` "
+                "should succeed), or pass --no-git to walk the filesystem without .gitignore "
+                "filtering"
+            )
+    paths = sorted(seen)
+    return GitListing(paths[:max_entries], truncated)

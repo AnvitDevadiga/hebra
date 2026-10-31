@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
-INDEX_DIR_NAME = ".hebra"
-INDEX_FILE_NAME = "index.sqlite3"
+from hebra.paths import INDEX_DIR_NAME
 
 # Directory names never descended into or indexed, at any depth.
 DEFAULT_EXCLUDED_DIRS: frozenset[str] = frozenset(
@@ -39,6 +37,10 @@ DEFAULT_EXCLUDED_DIRS: frozenset[str] = frozenset(
         ".vscode",
         "coverage",
         "htmlcov",
+        # Credential stores
+        ".ssh",
+        ".aws",
+        ".gnupg",
     }
 )
 
@@ -107,6 +109,64 @@ DEFAULT_EXCLUDED_SUFFIXES: tuple[str, ...] = (
 )
 
 
+# File-name patterns (fnmatch, matched case-insensitively against the base
+# name) that commonly hold credentials. Name filters are a safety net, not
+# secret detection: a secret in an ordinary file name is still indexed.
+DEFAULT_SENSITIVE_PATTERNS: tuple[str, ...] = (
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "*.jks",
+    "*.keystore",
+    "id_rsa*",
+    "id_dsa*",
+    "id_ecdsa*",
+    "id_ed25519*",
+    ".npmrc",
+    ".pypirc",
+    ".netrc",
+    ".git-credentials",
+    "credentials*",
+    "secrets.yaml",
+    "secrets.yml",
+    "secrets.json",
+)
+
+# Source-code suffixes exempt from the broad ``credentials*`` pattern, so a
+# module such as ``credentials.py`` stays indexable.
+CODE_SUFFIXES: frozenset[str] = frozenset(
+    {
+        ".py",
+        ".pyi",
+        ".js",
+        ".mjs",
+        ".cjs",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".go",
+        ".rs",
+        ".java",
+        ".kt",
+        ".c",
+        ".h",
+        ".cc",
+        ".cpp",
+        ".hpp",
+        ".cs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".sh",
+        ".md",
+        ".rst",
+    }
+)
+
+
 @dataclass(frozen=True)
 class ScanConfig:
     """Limits and exclusions applied while discovering files."""
@@ -117,7 +177,16 @@ class ScanConfig:
     excluded_dirs: frozenset[str] = DEFAULT_EXCLUDED_DIRS
     excluded_files: frozenset[str] = DEFAULT_EXCLUDED_FILES
     excluded_suffixes: tuple[str, ...] = DEFAULT_EXCLUDED_SUFFIXES
+    sensitive_patterns: tuple[str, ...] = DEFAULT_SENSITIVE_PATTERNS
+    # Upper bound on paths enumerated (directory entries walked, or paths read
+    # from `git ls-files`), applied before max_files.
+    max_scan_entries: int = 200_000
+    # In Git repositories: use `git ls-files` (False walks the filesystem and
+    # does NOT apply .gitignore). Ignored outside Git repositories.
     use_git: bool = True
+    # In Git repositories: also index untracked files that .gitignore does not
+    # exclude. Off by default so new, never-committed files are not indexed.
+    include_untracked: bool = False
 
 
 @dataclass(frozen=True)
@@ -133,7 +202,3 @@ class ChunkConfig:
 class IndexConfig:
     scan: ScanConfig = field(default_factory=ScanConfig)
     chunk: ChunkConfig = field(default_factory=ChunkConfig)
-
-
-def default_index_path(repo_root: Path) -> Path:
-    return repo_root / INDEX_DIR_NAME / INDEX_FILE_NAME

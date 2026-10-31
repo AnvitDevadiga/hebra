@@ -36,9 +36,10 @@ def window_chunks(
     """Split ``lines[start_line..end_line]`` into bounded, non-overlapping chunks.
 
     A window closes at ``window_lines`` lines or ``config.max_chars``
-    characters, whichever comes first. A single line longer than
-    ``max_chars`` becomes its own chunk rather than being cut mid-line.
-    Windows consisting only of blank lines are dropped.
+    characters, whichever comes first, so no chunk exceeds ``max_chars``.
+    A single line longer than ``max_chars`` is cut into consecutive pieces of
+    kind ``"<kind>-line-part"``; each piece keeps that line's number as both
+    start and end line. Windows consisting only of blank lines are dropped.
     """
     limit = window_lines or config.max_lines
     chunks: list[Chunk] = []
@@ -52,6 +53,14 @@ def window_chunks(
 
     for line_no in range(start_line, end_line + 1):
         line = lines[line_no - 1]
+        if len(line) > config.max_chars:
+            flush(line_no - 1)
+            current, current_start, chars = [], line_no + 1, 0
+            for offset in range(0, len(line), config.max_chars):
+                piece = line[offset : offset + config.max_chars]
+                if piece.strip():
+                    chunks.append(Chunk(line_no, line_no, f"{kind}-line-part", symbol, piece))
+            continue
         if current and (len(current) >= limit or chars + len(line) + 1 > config.max_chars):
             flush(line_no - 1)
             current = []
@@ -64,7 +73,10 @@ def window_chunks(
     if len(chunks) > 1 and kind != "text":
         # Mark pieces of a symbol that was too large to keep whole.
         return [
-            Chunk(c.start_line, c.end_line, f"{kind}-part", c.symbol, c.content) for c in chunks
+            Chunk(c.start_line, c.end_line, f"{kind}-part", c.symbol, c.content)
+            if c.kind == kind
+            else c
+            for c in chunks
         ]
     return chunks
 

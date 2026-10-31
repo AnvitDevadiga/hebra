@@ -49,7 +49,10 @@ def identifier_subwords(text: str) -> str:
 
 
 def query_terms(text: str) -> list[str]:
-    """Lower-case search terms for ``text`` in first-seen order, without duplicates."""
+    """Lower-case search terms for ``text`` in first-seen order, without duplicates.
+
+    Not truncated; callers apply ``MAX_QUERY_TERMS`` and report truncation.
+    """
     seen: dict[str, None] = {}
     for word in _WORD.findall(text):
         candidates = [word.lower()]
@@ -60,8 +63,6 @@ def query_terms(text: str) -> list[str]:
             if len(term) < 2 or term in STOPWORDS:
                 continue
             seen.setdefault(term, None)
-            if len(seen) >= MAX_QUERY_TERMS:
-                return list(seen)
     return list(seen)
 
 

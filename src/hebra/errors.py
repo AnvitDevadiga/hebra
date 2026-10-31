@@ -32,3 +32,15 @@ class BudgetError(HebraError):
 
 class TokenizerError(HebraError):
     """The configured tokenizer could not be loaded."""
+
+
+class IndexPathError(HebraError):
+    """The index location is unsafe (symlink, wrong file type, foreign database)."""
+
+
+class IndexDatabaseError(HebraError):
+    """The index database is corrupt, locked, or otherwise unusable."""
+
+
+class GitError(HebraError):
+    """Git metadata is present but the file list could not be obtained safely."""

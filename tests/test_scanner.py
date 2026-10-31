@@ -133,7 +133,7 @@ def test_total_size_limit(make_repo) -> None:
 
 
 @requires_git
-def test_git_mode_respects_gitignore_and_includes_untracked(make_git_repo) -> None:
+def test_git_mode_indexes_tracked_files_only_by_default(make_git_repo) -> None:
     root = make_git_repo({".gitignore": "ignored/\n*.log\n", "tracked.py": "x = 1\n"})
     (root / "ignored").mkdir()
     (root / "ignored" / "skip.py").write_text("x = 1\n")
@@ -141,6 +141,10 @@ def test_git_mode_respects_gitignore_and_includes_untracked(make_git_repo) -> No
     (root / "new_untracked.py").write_text("y = 2\n")
     files, stats = scan(root, use_git=True)
     assert stats.file_source == "git"
+    assert paths(files) == [".gitignore", "tracked.py"]
+
+    # Opt-in adds untracked files, but .gitignore is still honoured.
+    files, _ = scan(root, use_git=True, include_untracked=True)
     assert paths(files) == [".gitignore", "new_untracked.py", "tracked.py"]
 
 
@@ -161,3 +165,22 @@ def test_git_mode_skips_tracked_symlink(make_git_repo, tmp_path: Path) -> None:
     files, stats = scan(root, use_git=True)
     assert paths(files) == ["real.py"]
     assert stats.skipped["symlink"] == 1
+
+
+def test_l2_filesystem_enumeration_is_bounded(make_repo) -> None:
+    root = make_repo({f"d{i}/f{j}.py": "x = 1\n" for i in range(10) for j in range(10)})
+    files, stats = scan(root, max_scan_entries=25)
+    assert stats.truncated
+    assert stats.candidates < 40  # stopped early instead of listing all 110 entries
+    assert any("max_scan_entries" in w for w in stats.warnings)
+    again, _ = scan(root, max_scan_entries=25)
+    assert paths(again) == paths(files)  # deterministic truncation
+
+
+@requires_git
+def test_l2_git_listing_is_bounded(make_git_repo) -> None:
+    root = make_git_repo({f"f{i:02d}.py": "x = 1\n" for i in range(30)})
+    files, stats = scan(root, use_git=True, max_scan_entries=5)
+    assert stats.truncated
+    assert stats.candidates == 5
+    assert paths(files) == [f"f{i:02d}.py" for i in range(5)]

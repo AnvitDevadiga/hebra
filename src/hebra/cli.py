@@ -1,21 +1,29 @@
-"""Command-line interface: ``hebra index | search | pack | stats``."""
+"""Command-line interface: ``hebra index | search | pack | stats``.
+
+Data outputs (pack output, ``--json``) are written to stdout as UTF-8 bytes
+regardless of the locale, so a limited terminal encoding can neither crash
+the command nor alter the token-counted text. Human-readable lines use
+``backslashreplace`` and escape untrusted paths.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from hebra import __version__
-from hebra.config import IndexConfig, ScanConfig, default_index_path
+from hebra.config import IndexConfig, ScanConfig
 from hebra.context.packer import DEFAULT_CANDIDATES, MAX_BUDGET, pack_context
+from hebra.context.render import escape_untrusted
 from hebra.context.tokenizer import DEFAULT_ENCODING, SUPPORTED_ENCODINGS
 from hebra.errors import HebraError
 from hebra.indexing import index_repository, index_summary
-from hebra.indexing.indexer import resolve_repository
+from hebra.paths import resolve_repository
 from hebra.retrieval.search import DEFAULT_LIMIT, MAX_LIMIT, search
 
 
@@ -32,8 +40,19 @@ def _bounded_int(low: int, high: int) -> Any:
     return parse
 
 
+def _emit(text: str) -> None:
+    """Write data output as UTF-8 bytes, independent of the stdout encoding."""
+    sys.stdout.flush()
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is None:  # pragma: no cover - replaced stdout without a byte layer
+        sys.stdout.write(text)
+    else:
+        buffer.write(text.encode("utf-8"))
+        buffer.flush()
+
+
 def _print_json(data: object) -> None:
-    sys.stdout.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    _emit(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
 def _warn(messages: Sequence[str]) -> None:
@@ -41,8 +60,8 @@ def _warn(messages: Sequence[str]) -> None:
         print(f"hebra: warning: {message}", file=sys.stderr)
 
 
-def _db_path(args: argparse.Namespace, repo: Path) -> Path:
-    return Path(args.db).resolve() if args.db else default_index_path(repo)
+def _db_path(args: argparse.Namespace) -> Path | None:
+    return Path(args.db) if args.db else None
 
 
 def _format_counts(counts: dict[str, int]) -> str:
@@ -52,9 +71,12 @@ def _format_counts(counts: dict[str, int]) -> str:
 def cmd_index(args: argparse.Namespace) -> int:
     repo = resolve_repository(Path(args.repository))
     scan = ScanConfig(
-        max_file_bytes=args.max_file_bytes, max_files=args.max_files, use_git=not args.no_git
+        max_file_bytes=args.max_file_bytes,
+        max_files=args.max_files,
+        use_git=not args.no_git,
+        include_untracked=args.include_untracked,
     )
-    report = index_repository(repo, _db_path(args, repo), IndexConfig(scan=scan))
+    report = index_repository(repo, _db_path(args), IndexConfig(scan=scan))
     if args.json:
         _print_json(report.to_dict())
     else:
@@ -75,7 +97,7 @@ def cmd_index(args: argparse.Namespace) -> int:
 
 def cmd_search(args: argparse.Namespace) -> int:
     repo = resolve_repository(Path(args.repository))
-    response = search(repo, args.task, limit=args.limit, db_path=_db_path(args, repo))
+    response = search(repo, args.task, limit=args.limit, db_path=_db_path(args))
     if args.json:
         _print_json(
             {
@@ -90,15 +112,17 @@ def cmd_search(args: argparse.Namespace) -> int:
         print(f"Query terms: {', '.join(response.terms)}")
         print(f"Results: {len(response.hits)} (BM25, lexical)")
         for hit in response.hits:
-            symbol = f" {hit.symbol}" if hit.symbol else ""
+            symbol = f" {escape_untrusted(hit.symbol)}" if hit.symbol else ""
             matched = ", ".join(hit.matched_terms)
+            stale = "" if hit.source_status == "current" else f"  [STALE: {hit.source_status}]"
             print(
-                f"{hit.rank:>3}. {hit.score:>9.4f}  {hit.path}:{hit.start_line}-{hit.end_line}"
-                f"  {hit.kind}{symbol}  [{matched}]"
+                f"{hit.rank:>3}. {hit.score:>9.4f}  "
+                f"{escape_untrusted(hit.path)}:{hit.start_line}-{hit.end_line}"
+                f"  {hit.kind}{symbol}  [{matched}]{stale}"
             )
             if args.show_content:
                 for line in hit.content.splitlines():
-                    print(f"       | {line}")
+                    print(f"       | {escape_untrusted(line)}")
     _warn(response.warnings)
     return 0
 
@@ -111,7 +135,7 @@ def cmd_pack(args: argparse.Namespace) -> int:
         args.budget,
         encoding=args.encoding,
         candidates=args.candidates,
-        db_path=_db_path(args, repo),
+        db_path=_db_path(args),
     )
     if args.format == "json":
         output = json.dumps(result.to_dict(), indent=2, ensure_ascii=False) + "\n"
@@ -120,7 +144,7 @@ def cmd_pack(args: argparse.Namespace) -> int:
     if args.output:
         Path(args.output).write_text(output, encoding="utf-8")
     else:
-        sys.stdout.write(output)
+        _emit(output)
     print(
         f"hebra: packed {len(result.selected)} fragment(s), {result.used_tokens}/{result.budget} "
         f"tokens ({result.encoding}); {len(result.excluded)} candidate(s) excluded",
@@ -132,7 +156,7 @@ def cmd_pack(args: argparse.Namespace) -> int:
 
 def cmd_stats(args: argparse.Namespace) -> int:
     repo = resolve_repository(Path(args.repository))
-    summary = index_summary(_db_path(args, repo))
+    summary = index_summary(repo, _db_path(args))
     if args.json:
         _print_json(summary)
         return 0
@@ -167,6 +191,11 @@ def build_parser() -> argparse.ArgumentParser:
         "The right context. Nothing extra.",
     )
     parser.add_argument("--version", action="version", version=f"hebra {__version__}")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="show full tracebacks for errors (also enabled by HEBRA_DEBUG=1)",
+    )
     sub = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
     def add_common(p: argparse.ArgumentParser) -> None:
@@ -181,8 +210,10 @@ def build_parser() -> argparse.ArgumentParser:
         "index",
         help="build or incrementally update the repository index",
         description="Scan a repository and build or update its local SQLite index. Unchanged "
-        "files are skipped by content hash; deleted files are removed. In Git repositories "
-        "the file list comes from `git ls-files` (tracked plus untracked, not ignored).",
+        "files are skipped by content hash; deleted and newly excluded files are removed. In "
+        "Git repositories only tracked files are indexed (via `git ls-files`); if Git metadata "
+        "exists but the listing fails, indexing stops. Files with credential-like names "
+        "(.env, *.pem, id_rsa, ...) and files containing PEM private keys are always skipped.",
     )
     add_common(p_index)
     p_index.add_argument(
@@ -198,7 +229,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="stop accepting files after this many (default: %(default)s)",
     )
     p_index.add_argument(
-        "--no-git", action="store_true", help="walk the filesystem instead of using git ls-files"
+        "--include-untracked",
+        action="store_true",
+        help="Git repositories: also index untracked files not excluded by .gitignore",
+    )
+    p_index.add_argument(
+        "--no-git",
+        action="store_true",
+        help="walk the filesystem instead of using git ls-files; .gitignore is NOT applied",
     )
     p_index.add_argument("--json", action="store_true", help="print the report as JSON")
     p_index.set_defaults(func=cmd_index)
@@ -270,21 +308,31 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
     parser = build_parser()
     args = parser.parse_args(argv)
+    debug = args.debug or os.environ.get("HEBRA_DEBUG") == "1"
     try:
         return int(args.func(args))
     except HebraError as exc:
-        print(f"hebra: error: {exc}", file=sys.stderr)
+        if debug:
+            raise
+        print(f"hebra: error: {escape_untrusted(str(exc))}", file=sys.stderr)
+        return 1
+    except BrokenPipeError:
+        # Output piped into e.g. `head`; nothing useful left to do.
+        sys.stderr.close()
         return 1
     except OSError as exc:
-        if isinstance(exc, BrokenPipeError):
-            # Output piped into e.g. `head`; nothing useful left to do.
-            sys.stderr.close()
-            return 1
-        print(f"hebra: error: {exc}", file=sys.stderr)
+        if debug:
+            raise
+        print(f"hebra: error: {escape_untrusted(str(exc))}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
+        print("hebra: interrupted; no index changes were committed", file=sys.stderr)
         return 130
 
 

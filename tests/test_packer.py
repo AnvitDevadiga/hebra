@@ -100,9 +100,8 @@ def test_selected_fragments_are_in_rank_order_with_reasons(repo: Path) -> None:
     assert ranks == sorted(ranks)
     for fragment in result.selected:
         assert fragment.reason.startswith(f"BM25 rank {fragment.hit.rank} of")
-        assert f"{fragment.hit.path}:{fragment.hit.start_line}-{fragment.hit.end_line}" in (
-            result.markdown
-        )
+        heading = f"`{fragment.hit.path}` lines {fragment.hit.start_line}-{fragment.hit.end_line}"
+        assert heading in result.markdown
 
 
 def test_duplicate_content_is_excluded(make_repo) -> None:
