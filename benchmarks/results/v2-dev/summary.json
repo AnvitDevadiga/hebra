@@ -1,0 +1,1161 @@
+{
+  "indexing": {
+    "attrs": {
+      "files_indexed_median": 118,
+      "first_task_index_seconds": 0.3961,
+      "median_incremental_seconds": 0.1969
+    },
+    "click": {
+      "files_indexed_median": 140.0,
+      "first_task_index_seconds": 0.4828,
+      "median_incremental_seconds": 0.2753
+    },
+    "requests": {
+      "files_indexed_median": 111,
+      "first_task_index_seconds": 0.3077,
+      "median_incremental_seconds": 0.154
+    }
+  },
+  "subsets": {
+    "all": {
+      "context": {
+        "ablation_no_coverage": {
+          "1000": {
+            "any_hit": 0.3,
+            "fragments": 3.8333,
+            "latency_ms_median": 16.25,
+            "redundancy": 0.7091,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2222,
+            "token_precision": 0.1136,
+            "utilization": 0.9701
+          },
+          "2000": {
+            "any_hit": 0.3667,
+            "fragments": 6.6333,
+            "latency_ms_median": 17.1,
+            "redundancy": 0.7639,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3,
+            "token_precision": 0.0961,
+            "utilization": 0.9848
+          },
+          "4000": {
+            "any_hit": 0.5,
+            "fragments": 13.0,
+            "latency_ms_median": 22.56,
+            "redundancy": 0.8732,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4389,
+            "token_precision": 0.0851,
+            "utilization": 0.9837
+          },
+          "8000": {
+            "any_hit": 0.5667,
+            "fragments": 26.8333,
+            "latency_ms_median": 44.99,
+            "redundancy": 0.9297,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4889,
+            "token_precision": 0.0581,
+            "utilization": 0.9894
+          }
+        },
+        "ablation_no_graph": {
+          "1000": {
+            "any_hit": 0.3,
+            "fragments": 4.0667,
+            "latency_ms_median": 15.32,
+            "redundancy": 0.7049,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2222,
+            "token_precision": 0.1136,
+            "utilization": 0.9657
+          },
+          "2000": {
+            "any_hit": 0.4,
+            "fragments": 6.8,
+            "latency_ms_median": 16.23,
+            "redundancy": 0.7662,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3333,
+            "token_precision": 0.0991,
+            "utilization": 0.9823
+          },
+          "4000": {
+            "any_hit": 0.5,
+            "fragments": 13.8333,
+            "latency_ms_median": 22.24,
+            "redundancy": 0.8697,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4389,
+            "token_precision": 0.0844,
+            "utilization": 0.9848
+          },
+          "8000": {
+            "any_hit": 0.5667,
+            "fragments": 26.6333,
+            "latency_ms_median": 43.29,
+            "redundancy": 0.9261,
+            "references_correct": 1.0,
+            "symbol_recall": 0.5056,
+            "token_precision": 0.0546,
+            "utilization": 0.9814
+          }
+        },
+        "bm25_greedy": {
+          "1000": {
+            "any_hit": 0.3,
+            "fragments": 3.9333,
+            "latency_ms_median": 11.05,
+            "redundancy": 0.6875,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2222,
+            "token_precision": 0.1135,
+            "utilization": 0.9667
+          },
+          "2000": {
+            "any_hit": 0.4,
+            "fragments": 6.3667,
+            "latency_ms_median": 12.22,
+            "redundancy": 0.7458,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3333,
+            "token_precision": 0.0977,
+            "utilization": 0.9812
+          },
+          "4000": {
+            "any_hit": 0.4667,
+            "fragments": 11.7333,
+            "latency_ms_median": 16.77,
+            "redundancy": 0.8524,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4056,
+            "token_precision": 0.0779,
+            "utilization": 0.9867
+          },
+          "8000": {
+            "any_hit": 0.5333,
+            "fragments": 22.7,
+            "latency_ms_median": 34.09,
+            "redundancy": 0.9095,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4722,
+            "token_precision": 0.0544,
+            "utilization": 0.9855
+          }
+        },
+        "graph_greedy": {
+          "1000": {
+            "any_hit": 0.3,
+            "fragments": 3.6333,
+            "latency_ms_median": 11.78,
+            "redundancy": 0.6913,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2222,
+            "token_precision": 0.1134,
+            "utilization": 0.9683
+          },
+          "2000": {
+            "any_hit": 0.4,
+            "fragments": 6.0333,
+            "latency_ms_median": 12.79,
+            "redundancy": 0.7364,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3333,
+            "token_precision": 0.0983,
+            "utilization": 0.9824
+          },
+          "4000": {
+            "any_hit": 0.4667,
+            "fragments": 11.2,
+            "latency_ms_median": 17.3,
+            "redundancy": 0.8486,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4056,
+            "token_precision": 0.0826,
+            "utilization": 0.9912
+          },
+          "8000": {
+            "any_hit": 0.5667,
+            "fragments": 22.6333,
+            "latency_ms_median": 34.45,
+            "redundancy": 0.9116,
+            "references_correct": 1.0,
+            "symbol_recall": 0.5056,
+            "token_precision": 0.0568,
+            "utilization": 0.9934
+          }
+        },
+        "hebra_optimized": {
+          "1000": {
+            "any_hit": 0.3,
+            "fragments": 4.0667,
+            "latency_ms_median": 15.79,
+            "redundancy": 0.7758,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2222,
+            "token_precision": 0.1195,
+            "utilization": 0.9649
+          },
+          "2000": {
+            "any_hit": 0.4,
+            "fragments": 7.4,
+            "latency_ms_median": 17.31,
+            "redundancy": 0.8183,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3333,
+            "token_precision": 0.1087,
+            "utilization": 0.9791
+          },
+          "4000": {
+            "any_hit": 0.5,
+            "fragments": 14.7333,
+            "latency_ms_median": 24.03,
+            "redundancy": 0.8937,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4222,
+            "token_precision": 0.086,
+            "utilization": 0.986
+          },
+          "8000": {
+            "any_hit": 0.6,
+            "fragments": 27.5333,
+            "latency_ms_median": 45.01,
+            "redundancy": 0.9335,
+            "references_correct": 1.0,
+            "symbol_recall": 0.5222,
+            "token_precision": 0.0664,
+            "utilization": 0.989
+          }
+        },
+        "truncation": {
+          "1000": {
+            "any_hit": 0.3,
+            "fragments": 3.2,
+            "latency_ms_median": 10.64,
+            "redundancy": 0.5288,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2222,
+            "token_precision": null,
+            "utilization": 1.0
+          },
+          "2000": {
+            "any_hit": 0.3667,
+            "fragments": 5.8333,
+            "latency_ms_median": 10.33,
+            "redundancy": 0.6899,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2889,
+            "token_precision": null,
+            "utilization": 1.0
+          },
+          "4000": {
+            "any_hit": 0.4667,
+            "fragments": 11.4,
+            "latency_ms_median": 10.54,
+            "redundancy": 0.8521,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4056,
+            "token_precision": null,
+            "utilization": 1.0
+          },
+          "8000": {
+            "any_hit": 0.5333,
+            "fragments": 22.2667,
+            "latency_ms_median": 11.2,
+            "redundancy": 0.9063,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4722,
+            "token_precision": null,
+            "utilization": 0.9919
+          }
+        }
+      },
+      "paired": {
+        "ablation_no_coverage vs hebra_optimized": {
+          "1000": {
+            "ci95": [
+              -0.1,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 28,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              -0.1,
+              0.0
+            ],
+            "losses": 1,
+            "mean_recall_difference": -0.0333,
+            "ties": 29,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.05
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0167,
+            "ties": 29,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.1,
+              0.0
+            ],
+            "losses": 1,
+            "mean_recall_difference": -0.0333,
+            "ties": 29,
+            "wins": 0
+          }
+        },
+        "ablation_no_graph vs hebra_optimized": {
+          "1000": {
+            "ci95": [
+              -0.1,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 28,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.05
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0167,
+            "ties": 29,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.1333,
+              0.1
+            ],
+            "losses": 2,
+            "mean_recall_difference": -0.0167,
+            "ties": 26,
+            "wins": 2
+          }
+        },
+        "bm25_greedy vs truncation": {
+          "1000": {
+            "ci95": [
+              -0.1667,
+              0.1667
+            ],
+            "losses": 3,
+            "mean_recall_difference": 0.0,
+            "ties": 24,
+            "wins": 3
+          },
+          "2000": {
+            "ci95": [
+              -0.0333,
+              0.1556
+            ],
+            "losses": 2,
+            "mean_recall_difference": 0.0444,
+            "ties": 26,
+            "wins": 2
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          },
+          "8000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          }
+        },
+        "graph_greedy vs bm25_greedy": {
+          "1000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          },
+          "8000": {
+            "ci95": [
+              0.0,
+              0.1
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0333,
+            "ties": 29,
+            "wins": 1
+          }
+        },
+        "hebra_optimized vs bm25_greedy": {
+          "1000": {
+            "ci95": [
+              -0.1,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 28,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              -0.05,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0167,
+            "ties": 28,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.0333,
+              0.1667
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.05,
+            "ties": 27,
+            "wins": 2
+          }
+        },
+        "hebra_optimized vs graph_greedy": {
+          "1000": {
+            "ci95": [
+              -0.1,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 28,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 30,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              -0.05,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0167,
+            "ties": 28,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.05,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0167,
+            "ties": 28,
+            "wins": 1
+          }
+        },
+        "hebra_optimized vs truncation": {
+          "1000": {
+            "ci95": [
+              -0.1667,
+              0.1667
+            ],
+            "losses": 3,
+            "mean_recall_difference": 0.0,
+            "ties": 24,
+            "wins": 3
+          },
+          "2000": {
+            "ci95": [
+              -0.0333,
+              0.1556
+            ],
+            "losses": 2,
+            "mean_recall_difference": 0.0444,
+            "ties": 26,
+            "wins": 2
+          },
+          "4000": {
+            "ci95": [
+              -0.05,
+              0.1
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0167,
+            "ties": 28,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.0333,
+              0.1667
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.05,
+            "ties": 27,
+            "wins": 2
+          }
+        }
+      },
+      "ranking": {
+        "bm25": {
+          "latency_ms_median": 7.55,
+          "mrr": 0.2553,
+          "recall@10": 0.4389,
+          "recall@20": 0.4722,
+          "recall@5": 0.3222
+        },
+        "bm25_graph": {
+          "latency_ms_median": 7.71,
+          "mrr": 0.2578,
+          "recall@10": 0.4389,
+          "recall@20": 0.4722,
+          "recall@5": 0.3222
+        }
+      },
+      "tasks": 30
+    },
+    "subject_does_not_name_a_label": {
+      "context": {
+        "ablation_no_coverage": {
+          "1000": {
+            "any_hit": 0.2692,
+            "fragments": 3.8846,
+            "latency_ms_median": 15.96,
+            "redundancy": 0.6772,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2244,
+            "token_precision": 0.0965,
+            "utilization": 0.9712
+          },
+          "2000": {
+            "any_hit": 0.3462,
+            "fragments": 6.6154,
+            "latency_ms_median": 16.81,
+            "redundancy": 0.7386,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3141,
+            "token_precision": 0.0925,
+            "utilization": 0.9847
+          },
+          "4000": {
+            "any_hit": 0.4615,
+            "fragments": 13.0385,
+            "latency_ms_median": 22.52,
+            "redundancy": 0.8601,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4167,
+            "token_precision": 0.0677,
+            "utilization": 0.9833
+          },
+          "8000": {
+            "any_hit": 0.5385,
+            "fragments": 26.7308,
+            "latency_ms_median": 44.69,
+            "redundancy": 0.9231,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4744,
+            "token_precision": 0.0374,
+            "utilization": 0.9895
+          }
+        },
+        "ablation_no_graph": {
+          "1000": {
+            "any_hit": 0.2692,
+            "fragments": 4.1154,
+            "latency_ms_median": 15.25,
+            "redundancy": 0.682,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2244,
+            "token_precision": 0.0963,
+            "utilization": 0.9679
+          },
+          "2000": {
+            "any_hit": 0.3846,
+            "fragments": 6.7692,
+            "latency_ms_median": 16.2,
+            "redundancy": 0.7398,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3526,
+            "token_precision": 0.0957,
+            "utilization": 0.9808
+          },
+          "4000": {
+            "any_hit": 0.4615,
+            "fragments": 13.9231,
+            "latency_ms_median": 22.24,
+            "redundancy": 0.8584,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4167,
+            "token_precision": 0.0663,
+            "utilization": 0.984
+          },
+          "8000": {
+            "any_hit": 0.5,
+            "fragments": 26.5769,
+            "latency_ms_median": 43.29,
+            "redundancy": 0.9194,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4551,
+            "token_precision": 0.039,
+            "utilization": 0.9799
+          }
+        },
+        "bm25_greedy": {
+          "1000": {
+            "any_hit": 0.2692,
+            "fragments": 3.9615,
+            "latency_ms_median": 11.05,
+            "redundancy": 0.6618,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2244,
+            "token_precision": 0.0962,
+            "utilization": 0.9691
+          },
+          "2000": {
+            "any_hit": 0.3846,
+            "fragments": 6.3846,
+            "latency_ms_median": 12.03,
+            "redundancy": 0.7221,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3526,
+            "token_precision": 0.0958,
+            "utilization": 0.9799
+          },
+          "4000": {
+            "any_hit": 0.4231,
+            "fragments": 11.7692,
+            "latency_ms_median": 16.47,
+            "redundancy": 0.8406,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3782,
+            "token_precision": 0.0641,
+            "utilization": 0.9856
+          },
+          "8000": {
+            "any_hit": 0.5,
+            "fragments": 22.9615,
+            "latency_ms_median": 34.09,
+            "redundancy": 0.9037,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4551,
+            "token_precision": 0.0446,
+            "utilization": 0.9838
+          }
+        },
+        "graph_greedy": {
+          "1000": {
+            "any_hit": 0.2692,
+            "fragments": 3.6538,
+            "latency_ms_median": 11.51,
+            "redundancy": 0.6567,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2244,
+            "token_precision": 0.0963,
+            "utilization": 0.9691
+          },
+          "2000": {
+            "any_hit": 0.3846,
+            "fragments": 6.1154,
+            "latency_ms_median": 12.55,
+            "redundancy": 0.7206,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3526,
+            "token_precision": 0.0972,
+            "utilization": 0.9832
+          },
+          "4000": {
+            "any_hit": 0.4231,
+            "fragments": 11.1538,
+            "latency_ms_median": 17.22,
+            "redundancy": 0.8352,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3782,
+            "token_precision": 0.0649,
+            "utilization": 0.9912
+          },
+          "8000": {
+            "any_hit": 0.5385,
+            "fragments": 22.8462,
+            "latency_ms_median": 34.18,
+            "redundancy": 0.9079,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4936,
+            "token_precision": 0.0405,
+            "utilization": 0.9933
+          }
+        },
+        "hebra_optimized": {
+          "1000": {
+            "any_hit": 0.2692,
+            "fragments": 4.0385,
+            "latency_ms_median": 15.6,
+            "redundancy": 0.7413,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2244,
+            "token_precision": 0.0984,
+            "utilization": 0.9644
+          },
+          "2000": {
+            "any_hit": 0.3846,
+            "fragments": 7.2308,
+            "latency_ms_median": 16.8,
+            "redundancy": 0.8,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3526,
+            "token_precision": 0.098,
+            "utilization": 0.9792
+          },
+          "4000": {
+            "any_hit": 0.4615,
+            "fragments": 14.3846,
+            "latency_ms_median": 23.78,
+            "redundancy": 0.8817,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4167,
+            "token_precision": 0.0672,
+            "utilization": 0.9848
+          },
+          "8000": {
+            "any_hit": 0.5769,
+            "fragments": 27.4615,
+            "latency_ms_median": 44.54,
+            "redundancy": 0.9293,
+            "references_correct": 1.0,
+            "symbol_recall": 0.5128,
+            "token_precision": 0.0421,
+            "utilization": 0.9888
+          }
+        },
+        "truncation": {
+          "1000": {
+            "any_hit": 0.2692,
+            "fragments": 3.1923,
+            "latency_ms_median": 10.64,
+            "redundancy": 0.4755,
+            "references_correct": 1.0,
+            "symbol_recall": 0.2244,
+            "token_precision": null,
+            "utilization": 1.0
+          },
+          "2000": {
+            "any_hit": 0.3462,
+            "fragments": 5.8077,
+            "latency_ms_median": 10.27,
+            "redundancy": 0.6576,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3013,
+            "token_precision": null,
+            "utilization": 1.0
+          },
+          "4000": {
+            "any_hit": 0.4231,
+            "fragments": 11.5,
+            "latency_ms_median": 10.53,
+            "redundancy": 0.8414,
+            "references_correct": 1.0,
+            "symbol_recall": 0.3782,
+            "token_precision": null,
+            "utilization": 1.0
+          },
+          "8000": {
+            "any_hit": 0.5,
+            "fragments": 22.3846,
+            "latency_ms_median": 11.13,
+            "redundancy": 0.8998,
+            "references_correct": 1.0,
+            "symbol_recall": 0.4551,
+            "token_precision": null,
+            "utilization": 0.9907
+          }
+        }
+      },
+      "paired": {
+        "ablation_no_coverage vs hebra_optimized": {
+          "1000": {
+            "ci95": [
+              -0.1154,
+              0.1154
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 24,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              -0.1154,
+              0.0
+            ],
+            "losses": 1,
+            "mean_recall_difference": -0.0385,
+            "ties": 25,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "8000": {
+            "ci95": [
+              -0.1154,
+              0.0
+            ],
+            "losses": 1,
+            "mean_recall_difference": -0.0385,
+            "ties": 25,
+            "wins": 0
+          }
+        },
+        "ablation_no_graph vs hebra_optimized": {
+          "1000": {
+            "ci95": [
+              -0.1154,
+              0.1154
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 24,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "8000": {
+            "ci95": [
+              -0.1731,
+              0.0385
+            ],
+            "losses": 2,
+            "mean_recall_difference": -0.0577,
+            "ties": 23,
+            "wins": 1
+          }
+        },
+        "bm25_greedy vs truncation": {
+          "1000": {
+            "ci95": [
+              -0.1923,
+              0.1923
+            ],
+            "losses": 3,
+            "mean_recall_difference": 0.0,
+            "ties": 20,
+            "wins": 3
+          },
+          "2000": {
+            "ci95": [
+              -0.0385,
+              0.1667
+            ],
+            "losses": 2,
+            "mean_recall_difference": 0.0513,
+            "ties": 22,
+            "wins": 2
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "8000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          }
+        },
+        "graph_greedy vs bm25_greedy": {
+          "1000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "8000": {
+            "ci95": [
+              0.0,
+              0.1154
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0385,
+            "ties": 25,
+            "wins": 1
+          }
+        },
+        "hebra_optimized vs bm25_greedy": {
+          "1000": {
+            "ci95": [
+              -0.1154,
+              0.1154
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 24,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.1154
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0385,
+            "ties": 25,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.0385,
+              0.1731
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0577,
+            "ties": 23,
+            "wins": 2
+          }
+        },
+        "hebra_optimized vs graph_greedy": {
+          "1000": {
+            "ci95": [
+              -0.1154,
+              0.1154
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0,
+            "ties": 24,
+            "wins": 1
+          },
+          "2000": {
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0,
+            "ties": 26,
+            "wins": 0
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.1154
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0385,
+            "ties": 25,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.0577,
+              0.1154
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0192,
+            "ties": 24,
+            "wins": 1
+          }
+        },
+        "hebra_optimized vs truncation": {
+          "1000": {
+            "ci95": [
+              -0.1923,
+              0.1923
+            ],
+            "losses": 3,
+            "mean_recall_difference": 0.0,
+            "ties": 20,
+            "wins": 3
+          },
+          "2000": {
+            "ci95": [
+              -0.0385,
+              0.1667
+            ],
+            "losses": 2,
+            "mean_recall_difference": 0.0513,
+            "ties": 22,
+            "wins": 2
+          },
+          "4000": {
+            "ci95": [
+              0.0,
+              0.1154
+            ],
+            "losses": 0,
+            "mean_recall_difference": 0.0385,
+            "ties": 25,
+            "wins": 1
+          },
+          "8000": {
+            "ci95": [
+              -0.0385,
+              0.1731
+            ],
+            "losses": 1,
+            "mean_recall_difference": 0.0577,
+            "ties": 23,
+            "wins": 2
+          }
+        }
+      },
+      "ranking": {
+        "bm25": {
+          "latency_ms_median": 7.47,
+          "mrr": 0.2115,
+          "recall@10": 0.4167,
+          "recall@20": 0.4167,
+          "recall@5": 0.3397
+        },
+        "bm25_graph": {
+          "latency_ms_median": 7.64,
+          "mrr": 0.2149,
+          "recall@10": 0.4167,
+          "recall@20": 0.4551,
+          "recall@5": 0.3397
+        }
+      },
+      "tasks": 26
+    }
+  },
+  "task_errors": [],
+  "tasks": 30
+}

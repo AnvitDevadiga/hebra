@@ -116,9 +116,70 @@ becomes the default only if, on held-out tasks, its paired symbol-recall
 difference against `bm25_greedy` has a 95% interval entirely above zero at at
 least three of the four budgets. Otherwise `greedy` stays the default.
 
-## Results, v2
+## Results, v2 (`benchmarks/results/v2-heldout`, Hebra `98e9dc5a`)
 
-Filled in from `benchmarks/results/v2-heldout` after the run.
+Held-out, 90 tasks, same dataset and protocol. Mean symbol recall:
+
+| config | 1000 | 2000 | 4000 | 8000 |
+|---|---|---|---|---|
+| truncation | 0.283 | 0.433 | 0.539 | 0.739 |
+| bm25_greedy | 0.235 | 0.411 | 0.507 | 0.728 |
+| graph_greedy | 0.241 | 0.417 | 0.506 | 0.700 |
+| hebra_optimized | 0.213 | 0.365 | 0.498 | 0.620 |
+| ablation_no_graph | 0.252 | 0.389 | 0.480 | 0.730 |
+| ablation_no_coverage | 0.226 | 0.389 | 0.489 | 0.680 |
+
+Paired difference, `hebra_optimized` minus `bm25_greedy` (95% interval,
+wins/ties/losses):
+
+| budget | v1 | v2 |
+|---|---|---|
+| 1000 | -0.082 [-0.165, -0.004] | -0.022 [-0.067, 0.011], 2/85/3 |
+| 2000 | -0.128 [-0.219, -0.039] | -0.046 [-0.107, 0.009], 3/81/6 |
+| 4000 | -0.100 [-0.185, -0.015] | -0.009 [-0.074, 0.059], 7/77/6 |
+| 8000 | -0.156 [-0.248, -0.067] | -0.107 [-0.191, -0.030], 5/70/15 |
+
+**Decision.** The pre-registered criterion was not met (no budget has an
+interval above zero), so `greedy` remains the default and `optimized` is an
+opt-in experimental strategy.
+
+**Findings.**
+
+- The steeper rank prior removed most of v1's deficit at 1000 to 4000 tokens,
+  where `optimized` and `greedy` are now statistically indistinguishable. It
+  is still worse at 8000 tokens.
+- The cause at 8000 is graph-symbol coverage: removing the graph from the
+  optimizer (`ablation_no_graph`) recovers +0.109 [0.030, 0.187]. On dev at
+  8000 tokens, 9.1 of the 27.5 fragments `optimized` selects with graph
+  retrieval came only from graph expansion, displacing BM25-ranked fragments.
+- Graph expansion with greedy selection (`graph_greedy`) is indistinguishable
+  from BM25 at every budget, and lowers ranking recall@20 from 0.730 to 0.669.
+  On this task type (localizing the code a fix changed, from a one-line
+  description), one-hop call and reference neighbors rarely contain the
+  changed code.
+- Truncation remains the strongest configuration (best mean at every budget,
+  though not significantly better than greedy at most budgets). It includes
+  the beginning of large top-ranked functions that whole-fragment strategies
+  skip. Including a bounded prefix of a large fragment, with correct line
+  numbers, is the most promising direction suggested by these data; it is
+  not implemented.
+- The 30-task dev split did not predict held-out behaviour: on dev, v2
+  `optimized` was slightly ahead of greedy at 8000 tokens (+0.05; 2 wins,
+  1 loss). Small tuning sets are a limitation of this study.
+- On the 68 held-out tasks whose subject does not name a label, the pattern is
+  the same (see `summary.md`).
+
+Every packed context in every run stayed within its budget, and every
+reference matched the file at its stated lines (`references correct` = 1.0).
+
+Indexing (first full index of a checkout; later tasks re-index incrementally):
+click 0.46 s, requests 0.27 s, attrs 0.40 s for 110 to 140 files on an Apple
+Silicon laptop; median incremental re-index 0.12 to 0.16 s. Median
+`hebra pack` latency at 4000 tokens: 17 ms (greedy), 23 ms (optimized),
+10 ms (truncation). Timings are from single runs on one machine.
+
+Memory freshness (`benchmarks/results/v2-memory-freshness`): 15 of 15
+constructed scenarios classified as intended.
 
 ## Memory freshness
 

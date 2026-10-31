@@ -171,7 +171,7 @@ def summarize(manifest: dict, records: list[dict], tasks: dict[str, dict], sampl
                 }
         out["subsets"][subset] = section
     by_repo: dict[str, list[float]] = defaultdict(list)
-    first: dict[str, float] = {}
+    first: dict[str, float] = {}  # first task's index time; incremental if a cache index existed
     for r in sorted(usable, key=lambda r: r["task_id"]):
         if r["kind"] == "ranking" and r["config"] == "bm25":
             by_repo[r["repo"]].append(r["index_seconds"])
@@ -180,7 +180,7 @@ def summarize(manifest: dict, records: list[dict], tasks: dict[str, dict], sampl
             first[r["repo"]] = r["index_seconds"]
     for repo, values in sorted(by_repo.items()):
         out["indexing"][repo] = {
-            "first_run_seconds": first.get(repo),
+            "first_task_index_seconds": first.get(repo),
             "median_incremental_seconds": round(statistics.median(values), 4),
             "files_indexed_median": statistics.median(
                 [
@@ -251,14 +251,18 @@ def markdown(summary: dict, manifest: dict) -> str:
                 )
         lines.append("")
     lines += [
-        "## Indexing time",
+        "## Indexing time per task",
         "",
-        "| repo | first run s | median incremental s | files |",
+        "Index time when switching to each task's base commit; the first task re-indexes "
+        "from whatever index the cached clone already had. Cold full-index times are "
+        "measured separately by `benchmarks/index_timing.py`.",
+        "",
+        "| repo | first task s | median per task s | files |",
         "|---|---|---|---|",
     ]
     for repo, m in summary["indexing"].items():
         lines.append(
-            f"| {repo} | {m['first_run_seconds']} | {m['median_incremental_seconds']} "
+            f"| {repo} | {m['first_task_index_seconds']} | {m['median_incremental_seconds']} "
             f"| {m['files_indexed_median']} |"
         )
     return "\n".join(lines) + "\n"

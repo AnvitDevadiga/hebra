@@ -2,17 +2,17 @@
   "indexing": {
     "attrs": {
       "files_indexed_median": 119,
-      "first_run_seconds": 0.4021,
+      "first_task_index_seconds": 0.4021,
       "median_incremental_seconds": 0.1445
     },
     "click": {
       "files_indexed_median": 140.0,
-      "first_run_seconds": 0.4632,
+      "first_task_index_seconds": 0.4632,
       "median_incremental_seconds": 0.1557
     },
     "requests": {
       "files_indexed_median": 111,
-      "first_run_seconds": 0.2738,
+      "first_task_index_seconds": 0.2738,
       "median_incremental_seconds": 0.1201
     }
   },
