@@ -158,8 +158,7 @@ def run(args: argparse.Namespace) -> int:
         configs = {k: v for k, v in configs.items() if k in args.configs.split(",")}
     override = None
     if args.weights:
-        a, b, c = (float(x) for x in args.weights.split(","))
-        override = Weights(a, b, c)
+        override = Weights(*(float(x) for x in args.weights.split(",")))
     repos = {r["name"]: r for r in config["repositories"]}
     cache = Path(args.cache_dir)
     out = Path(args.out)

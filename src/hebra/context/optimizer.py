@@ -16,7 +16,7 @@ Utility of a selected set ``S``::
          + beta  * sum_{t in T} w_t * [t matched by some f in S]
          + gamma * sum_{s in G} g_s * [s defined in some f in S]
 
-``r_f`` is a rank prior ``K / (K + rank - 1)`` with ``K = RANK_PRIOR_K``;
+``r_f`` is a rank prior ``rank ** -k`` with ``k = Weights.rank_decay``;
 ``w_t`` are query-term IDF weights and ``g_s`` graph-symbol weights, each
 normalised to sum to 1. Coverage terms make repeated evidence worth less:
 the *redundancy* reported for a fragment is its stand-alone gain minus its
@@ -30,7 +30,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 STRATEGIES = ("greedy", "optimized")
-RANK_PRIOR_K = 10.0
 # Skip the exact re-count when a fragment's stand-alone size exceeds the
 # remaining budget by more than this; acceptance always uses the exact count.
 BOUNDARY_SLACK_TOKENS = 16
@@ -45,9 +44,10 @@ class Weights:
     alpha: float = 1.0  # rank prior
     beta: float = 1.0  # query-term coverage
     gamma: float = 0.5  # graph-symbol coverage
+    rank_decay: float = 0.0  # k in the rank prior rank ** -k (0 = flat)
 
     def __post_init__(self) -> None:
-        if min(self.alpha, self.beta, self.gamma) < 0:
+        if min(self.alpha, self.beta, self.gamma, self.rank_decay) < 0:
             raise ValueError("objective weights must be non-negative")
 
 
@@ -100,7 +100,7 @@ class Objective:
         self.g = {s: symbol_weights[s] / sym_total for s in relevant} if sym_total else {}
 
     def prior(self, item: Item) -> float:
-        return RANK_PRIOR_K / (RANK_PRIOR_K + item.rank - 1)
+        return float(item.rank) ** -self.weights.rank_decay
 
     def gain(self, item: Item, terms: set[str], symbols: set[str]) -> float:
         a, b, c = self.weights.alpha, self.weights.beta, self.weights.gamma
