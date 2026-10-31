@@ -52,3 +52,11 @@ class OutputPathError(HebraError):
 
 class RepositoryChangedError(HebraError):
     """Source files kept changing while the repository was being indexed."""
+
+
+class MemoryStoreError(HebraError):
+    """A repository memory operation failed or was rejected."""
+
+
+class MemoryIdentityError(MemoryStoreError):
+    """A memory store belongs to a different repository."""

@@ -19,8 +19,12 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from typing import TYPE_CHECKING
 
 from hebra.retrieval.search import SearchHit
+
+if TYPE_CHECKING:
+    from hebra.memory import MemoryView
 
 _BACKTICK_RUN = re.compile(r"`+")
 # Control, format (e.g. bidi overrides), line/paragraph separators, private-use,
@@ -73,6 +77,7 @@ def render_header(
     budget: int,
     encoding: str,
     source_check: str,
+    method: str = "bm25 retrieval, greedy selection",
 ) -> str:
     task_text = "\n".join(task.strip().splitlines())
     fence = _fence_for(task_text)
@@ -83,14 +88,43 @@ def render_header(
         f"- Repository: {code_span(repo_name)}\n"
         f"- Indexed revision: {rev}\n"
         f"- Token budget: {budget} ({encoding})\n"
+        f"- Method: {method}\n"
         f"- Source check: {source_check}\n\n"
         f"{_DATA_NOTICE}\n"
     )
 
 
-def selection_reason(hit: SearchHit, candidates: int) -> str:
+def selection_reason(hit: SearchHit, candidates: int, mode: str = "bm25") -> str:
     matched = ", ".join(hit.matched_terms) if hit.matched_terms else "(not determined)"
-    return f"BM25 rank {hit.rank} of {candidates} (score {hit.score:.4f}); matched terms: {matched}"
+    if mode == "bm25":
+        return (
+            f"BM25 rank {hit.rank} of {candidates} (score {hit.score:.4f}); "
+            f"matched terms: {matched}"
+        )
+    bm25 = f"#{hit.bm25_rank}" if hit.bm25_rank else "-"
+    graph = f"#{hit.graph_rank}" if hit.graph_rank else "-"
+    reason = (
+        f"fused rank {hit.rank} of {candidates} (RRF {hit.score:.5f}; BM25 {bm25}, "
+        f"graph {graph}); matched terms: {matched}"
+    )
+    edge = next((e for e in hit.evidence if not e.startswith("seed:")), None)
+    if edge is not None:
+        reason += f"; via {code_span(edge)}"
+    return reason
+
+
+def render_memory(position: int, view: MemoryView) -> str:
+    """A repository memory record, as labelled untrusted data."""
+    record = view.record
+    refs = (
+        ", ".join(code_span(f"{r.path}:{r.start_line}-{r.end_line}") for r in record.refs) or "none"
+    )
+    fence = _fence_for(record.content)
+    return (
+        f"\n## {position}. Memory {code_span(record.id)} ({record.kind}, {view.status})\n\n"
+        f"Provenance: {record.provenance}; sources: {refs}\n\n"
+        f"{fence}text\n{record.content}\n{fence}\n"
+    )
 
 
 def render_fragment(position: int, hit: SearchHit, reason: str) -> str:

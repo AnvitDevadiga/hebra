@@ -158,7 +158,7 @@ def test_markdown_fences_survive_backticks_in_content(make_repo) -> None:
 def test_json_report_is_valid_and_complete(repo: Path) -> None:
     result = pack_context(repo, TASK, 600)
     data = json.loads(json.dumps(result.to_dict()))
-    assert data["schema"] == "hebra.pack/v1"
+    assert data["schema"] == "hebra.pack/v2"
     assert data["tokenizer"] == {
         "library": "tiktoken",
         "encoding": "o200k_base",
