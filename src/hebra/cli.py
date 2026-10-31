@@ -256,6 +256,8 @@ def cmd_stats(args: argparse.Namespace) -> int:
     print(f"Parsers:    {_format_counts(summary['files_by_parser'])}")
     print(f"Chunk kinds:  {_format_counts(summary['chunks_by_kind'])}")
     print(f"Symbol kinds: {_format_counts(summary['symbols_by_kind'])}")
+    print(f"Graph edges:  {_format_counts(summary['edges_by_status'])}")
+    print(f"Resolved:     {_format_counts(summary['resolved_edges_by_kind'])}")
     print(
         f"Last scan:  source={last_run.get('file_source')}, "
         f"skipped: {_format_counts(last_run.get('skipped') or {})}"

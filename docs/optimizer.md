@@ -96,7 +96,16 @@ rank, then the fragment key (path and start line).
 
 ## Empirical status
 
-See `docs/benchmarks.md` for measured results. In short: on the v1 held-out
-set the original `optimized` objective lost to rank-order `greedy`; the
-diagnosis and the revised prior are documented there, together with the
-re-run. `greedy` remains the default.
+See `docs/benchmarks.md`. In short, on the localization benchmark:
+
+- v1 (prior `10 / (10 + rank - 1)`): `optimized` was significantly worse than
+  rank-order `greedy` at every budget; it favoured many small, low-ranked
+  fragments over large, top-ranked ones.
+- v2 (prior `rank ** -2`, chosen on dev): indistinguishable from `greedy` at
+  1000 to 4000 tokens and still worse at 8000, where graph-symbol coverage
+  pulls in graph neighbours at the expense of BM25-ranked fragments.
+
+`optimized` has not been shown to help, so `greedy` is the default and
+`optimized` is an opt-in experimental strategy. Its reason to exist, trading
+relevance against token cost while discounting repeated evidence, remains a
+hypothesis that this benchmark did not support.

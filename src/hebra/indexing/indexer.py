@@ -463,6 +463,13 @@ def index_summary(repo_path: Path, db_path: Path | None = None) -> dict[str, Any
                 "symbols_by_kind": counts(
                     "SELECT kind, COUNT(*) FROM symbols GROUP BY kind ORDER BY kind"
                 ),
+                "edges_by_status": counts(
+                    "SELECT status, COUNT(*) FROM edges GROUP BY status ORDER BY status"
+                ),
+                "resolved_edges_by_kind": counts(
+                    "SELECT kind, COUNT(*) FROM edges WHERE status = 'resolved' "
+                    "GROUP BY kind ORDER BY kind"
+                ),
                 "last_run": {
                     key: last_run.get(key)
                     for key in ("file_source", "candidates", "skipped", "truncated", "warnings")

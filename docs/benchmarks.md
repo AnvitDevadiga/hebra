@@ -172,11 +172,13 @@ opt-in experimental strategy.
 Every packed context in every run stayed within its budget, and every
 reference matched the file at its stated lines (`references correct` = 1.0).
 
-Indexing (first full index of a checkout; later tasks re-index incrementally):
-click 0.46 s, requests 0.27 s, attrs 0.40 s for 110 to 140 files on an Apple
-Silicon laptop; median incremental re-index 0.12 to 0.16 s. Median
-`hebra pack` latency at 4000 tokens: 17 ms (greedy), 23 ms (optimized),
-10 ms (truncation). Timings are from single runs on one machine.
+Indexing (`benchmarks/results/v2-index-timing.json`): a cold full index at the
+pinned heads took a median of 0.45 s for click (175 files), 0.23 s for
+requests (115 files), and 0.32 s for attrs (134 files), three runs each on one
+Apple Silicon laptop. Switching between task commits re-indexes incrementally
+(median 0.12 to 0.16 s per task). Median `hebra pack` latency at 4000 tokens
+on held-out tasks: 17 ms (greedy), 23 ms (optimized), 10 ms (truncation).
+These are small repositories; no claim is made about large ones.
 
 Memory freshness (`benchmarks/results/v2-memory-freshness`): 15 of 15
 constructed scenarios classified as intended.
