@@ -13,12 +13,34 @@ result. Within that single transaction:
 A failure, including Ctrl-C, rolls the transaction back, leaving the
 previous index intact. If the index format changed (see
 ``store.INDEX_FORMAT_VERSION``), all rows are discarded and rebuilt.
+
+Source consistency contract. The database transaction makes the *index*
+atomic; it cannot snapshot a live working tree. Instead, before committing,
+each scan attempt is validated against the repository:
+
+* HEAD must point to the same commit as when the scan started (catches
+  branch switches and commits);
+* re-enumerating candidates must give the same path list (catches files
+  created, deleted, or renamed during the scan);
+* every file that was read must still have the same device, inode, size,
+  and modification time (catches edits, replacement, and symlink swaps).
+
+If anything differs, the attempt is rolled back to a savepoint and the scan
+repeats, at most ``MAX_SCAN_ATTEMPTS`` times; then indexing fails with
+:class:`~hebra.errors.RepositoryChangedError` and the previous index stays.
+
+Not guaranteed: changes made after validation and before ``COMMIT`` (a
+short window), same-size rewrites within one filesystem timestamp tick,
+and edits to files that were skipped rather than read. Queries re-check the
+content hash of every result file (see ``hebra.retrieval.search``), which
+catches anything that slips through here.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -27,12 +49,25 @@ from typing import Any
 
 from hebra import __version__
 from hebra.config import IndexConfig
+from hebra.errors import RepositoryChangedError
 from hebra.indexing import store
 from hebra.indexing.chunking import Chunk, split_lines, text_chunks
 from hebra.indexing.gitmeta import read_head_revision
 from hebra.indexing.python_parser import Symbol, parse_python
-from hebra.indexing.scanner import ScanStats, SourceFile, scan_repository
-from hebra.paths import IndexLocation, index_location, resolve_repository
+from hebra.indexing.scanner import (
+    FileSignature,
+    ScanStats,
+    SourceFile,
+    changed_since_read,
+    list_candidates,
+    scan_repository,
+)
+from hebra.paths import (
+    SQLITE_SIDECAR_SUFFIXES,
+    IndexLocation,
+    index_location,
+    resolve_repository,
+)
 from hebra.terms import camel_parts, identifier_subwords
 
 _LANGUAGES: dict[str, str] = {
@@ -91,7 +126,9 @@ class IndexReport:
     chunks_written: int = 0
     python_parse_failures: int = 0
     rebuilt: bool = False
+    snapshot_attempts: int = 0
     candidates: int = 0
+    entries_enumerated: int = 0
     bytes_read: int = 0
     truncated: bool = False
     skipped: dict[str, int] = field(default_factory=dict)
@@ -195,6 +232,9 @@ def _insert_file(
     return len(chunks), parse_failed
 
 
+MAX_SCAN_ATTEMPTS = 3
+
+
 def index_repository(
     repo_path: Path,
     db_path: Path | None = None,
@@ -203,25 +243,19 @@ def index_repository(
     """Build or incrementally update the index for ``repo_path``.
 
     ``db_path`` is an explicit index location; by default the index lives in
-    ``<repo>/.hebra/``. See :mod:`hebra.paths` for the safety policy.
+    ``<repo>/.hebra/``. See :mod:`hebra.paths` for the safety policy and the
+    module docstring for the source consistency contract.
     """
     config = config or IndexConfig()
     root = resolve_repository(repo_path)
     location = index_location(root, db_path)
 
     conn = store.open_for_write(location)
-    stats = ScanStats()
-    report = IndexReport(
-        repo_root=str(root),
-        index_path=str(location.path),
-        head_revision=read_head_revision(root),
-        file_source="",
-    )
     try:
         with store.database_errors(location.path):
             conn.execute("BEGIN IMMEDIATE")
             try:
-                _apply_scan(conn, root, location, config, stats, report)
+                report = _index_in_transaction(conn, root, location, config)
                 conn.execute("COMMIT")
             except BaseException:
                 if conn.in_transaction:
@@ -232,22 +266,100 @@ def index_repository(
     return report
 
 
+def _index_in_transaction(
+    conn: sqlite3.Connection, root: Path, location: IndexLocation, config: IndexConfig
+) -> IndexReport:
+    rebuilt = store.ensure_schema(conn, location, config.chunk)
+    ignore = _index_files_inside(root, location)
+    problems: list[str] = []
+    for attempt in range(1, MAX_SCAN_ATTEMPTS + 1):
+        head = read_head_revision(root)
+        report = IndexReport(
+            repo_root=str(root),
+            index_path=str(location.path),
+            head_revision=head,
+            file_source="",
+            rebuilt=rebuilt,
+            snapshot_attempts=attempt,
+        )
+        stats = ScanStats()
+        conn.execute("SAVEPOINT scan_attempt")
+        signatures = _apply_scan(conn, root, config, stats, report, ignore)
+        problems = _snapshot_problems(root, config, stats, signatures, head, ignore)
+        if not problems:
+            conn.execute("RELEASE scan_attempt")
+            break
+        conn.execute("ROLLBACK TO scan_attempt")
+        conn.execute("RELEASE scan_attempt")
+    else:
+        raise RepositoryChangedError(
+            f"the repository kept changing while it was indexed ({MAX_SCAN_ATTEMPTS} "
+            f"attempts; last: {'; '.join(problems)}). The previous index was kept; re-run "
+            "`hebra index` when the files are stable"
+        )
+    if report.snapshot_attempts > 1:
+        report.warnings.append(
+            f"files changed during indexing; re-scanned ({report.snapshot_attempts} attempts)"
+        )
+    store.set_meta(
+        conn,
+        {
+            "hebra_version": __version__,
+            "repo_root": str(root),
+            "head_revision": report.head_revision or "",
+            "indexed_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+            "last_run": json.dumps(report.to_dict(), sort_keys=True),
+        },
+    )
+    return report
+
+
+def _index_files_inside(root: Path, location: IndexLocation) -> frozenset[str]:
+    """Repository-relative paths of the index database and its SQLite sidecars."""
+    try:
+        rel = Path(os.path.realpath(location.path)).relative_to(root)
+    except ValueError:
+        return frozenset()
+    base = rel.as_posix()
+    return frozenset({base, *(base + s for s in SQLITE_SIDECAR_SUFFIXES)})
+
+
+def _snapshot_problems(
+    root: Path,
+    config: IndexConfig,
+    stats: ScanStats,
+    signatures: dict[str, FileSignature],
+    head: str | None,
+    ignore: frozenset[str],
+) -> list[str]:
+    """Differences between what was scanned and the repository right now."""
+    if read_head_revision(root) != head:
+        return ["HEAD moved to a different commit"]
+    if list_candidates(root, config.scan, ignore) != stats.candidate_paths:
+        return ["files were added, removed, or renamed"]
+    changed = [path for path, sig in signatures.items() if changed_since_read(root, path, sig)]
+    if changed:
+        more = f" and {len(changed) - 3} more" if len(changed) > 3 else ""
+        return [f"modified during the scan: {', '.join(changed[:3])}{more}"]
+    return []
+
+
 def _apply_scan(
     conn: sqlite3.Connection,
     root: Path,
-    location: IndexLocation,
     config: IndexConfig,
     stats: ScanStats,
     report: IndexReport,
-) -> None:
-    report.rebuilt = store.ensure_schema(conn, location, config.chunk)
+    ignore: frozenset[str],
+) -> dict[str, FileSignature]:
+    """Apply one scan to the index; return the signature of every file read."""
     existing = {
         row["path"]: (row["id"], row["sha256"])
         for row in conn.execute("SELECT id, path, sha256 FROM files")
     }
-    seen: set[str] = set()
-    for source in scan_repository(root, config.scan, stats):
-        seen.add(source.path)
+    signatures: dict[str, FileSignature] = {}
+    for source in scan_repository(root, config.scan, stats, ignore):
+        signatures[source.path] = source.signature
         previous = existing.get(source.path)
         if previous is not None and previous[1] == source.sha256:
             report.files_unchanged += 1
@@ -261,13 +373,14 @@ def _apply_scan(
         report.chunks_written += written
         report.python_parse_failures += int(failed)
 
-    for path in sorted(existing.keys() - seen):
+    for path in sorted(existing.keys() - signatures.keys()):
         store.delete_file(conn, existing[path][0])
         report.files_removed += 1
 
-    report.files_indexed = len(seen)
+    report.files_indexed = len(signatures)
     report.file_source = stats.file_source
     report.candidates = stats.candidates
+    report.entries_enumerated = stats.entries_enumerated
     report.bytes_read = stats.bytes_read
     report.truncated = stats.truncated
     report.skipped = dict(sorted(stats.skipped.items()))
@@ -279,17 +392,7 @@ def _apply_scan(
             f"{report.python_parse_failures} Python file(s) failed to parse and were "
             "indexed as plain text without symbols"
         )
-
-    store.set_meta(
-        conn,
-        {
-            "hebra_version": __version__,
-            "repo_root": str(root),
-            "head_revision": report.head_revision or "",
-            "indexed_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
-            "last_run": json.dumps(report.to_dict(), sort_keys=True),
-        },
-    )
+    return signatures
 
 
 def index_summary(repo_path: Path, db_path: Path | None = None) -> dict[str, Any]:
@@ -311,7 +414,12 @@ def index_summary(repo_path: Path, db_path: Path | None = None) -> dict[str, Any
             last_run = json.loads(meta["last_run"]) if "last_run" in meta else {}
             return {
                 "index_path": str(db_path),
-                "index_size_bytes": db_path.stat().st_size,
+                # From the open connection: the path may be replaced or removed
+                # concurrently, but this database's size is still well defined.
+                "index_size_bytes": (
+                    conn.execute("PRAGMA page_count").fetchone()[0]
+                    * conn.execute("PRAGMA page_size").fetchone()[0]
+                ),
                 "schema_version": store.SCHEMA_VERSION,
                 "index_format_version": store.INDEX_FORMAT_VERSION,
                 "hebra_version": meta.get("hebra_version"),

@@ -128,14 +128,17 @@ def test_special_token_text_is_counted_as_plain_text(make_repo) -> None:
     assert get_token_counter().count(result.markdown) == result.used_tokens
 
 
-def _code_blocks(markdown: str) -> list[tuple[str, str]]:
+def _code_blocks(markdown: str, task: str) -> list[tuple[str, str]]:
+    """Fragment code blocks, after checking the first block is the verbatim task."""
     tokens = MarkdownIt("commonmark").parse(markdown)
-    return [(t.info, t.content) for t in tokens if t.type == "fence"]
+    blocks = [(t.info, t.content) for t in tokens if t.type == "fence"]
+    assert blocks[0] == ("text", task + "\n")
+    return blocks[1:]
 
 
 def test_markdown_is_valid_and_preserves_content(repo: Path) -> None:
     result = pack_context(repo, TASK, 50_000)
-    blocks = _code_blocks(result.markdown)
+    blocks = _code_blocks(result.markdown, TASK)
     assert len(blocks) == len(result.selected)
     for (info, content), fragment in zip(blocks, result.selected, strict=True):
         assert content == fragment.hit.content + "\n"
@@ -147,7 +150,7 @@ def test_markdown_fences_survive_backticks_in_content(make_repo) -> None:
     root = make_repo({"md.py": doc})
     fs_index(root)
     result = pack_context(root, "render markdown", 2000)
-    blocks = _code_blocks(result.markdown)
+    blocks = _code_blocks(result.markdown, "render markdown")
     assert len(blocks) == 1
     assert blocks[0][1] == doc
 

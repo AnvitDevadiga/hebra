@@ -44,3 +44,11 @@ class IndexDatabaseError(HebraError):
 
 class GitError(HebraError):
     """Git metadata is present but the file list could not be obtained safely."""
+
+
+class OutputPathError(HebraError):
+    """An output file could not be written safely."""
+
+
+class RepositoryChangedError(HebraError):
+    """Source files kept changing while the repository was being indexed."""

@@ -1,4 +1,7 @@
-"""Repository and index path resolution, and the index-path safety policy.
+"""Repository and index path resolution, and filesystem write-safety policy.
+
+Covers the index location (below) and user-requested output files
+(:func:`write_output_file`).
 
 Repositories are untrusted input, and the default index lives *inside* the
 repository (``<repo>/.hebra/index.sqlite3``). A repository can therefore ship
@@ -40,11 +43,12 @@ from __future__ import annotations
 import contextlib
 import errno
 import os
+import secrets
 import stat
 from dataclasses import dataclass
 from pathlib import Path
 
-from hebra.errors import IndexPathError, RepositoryError
+from hebra.errors import IndexPathError, OutputPathError, RepositoryError
 
 INDEX_DIR_NAME = ".hebra"
 INDEX_FILE_NAME = "index.sqlite3"
@@ -55,6 +59,8 @@ _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
 _O_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
 _O_NONBLOCK = getattr(os, "O_NONBLOCK", 0)
 _HAVE_DIR_FD = os.open in os.supports_dir_fd and bool(_O_NOFOLLOW and _O_DIRECTORY)
+# renameat() is not exposed on every POSIX build (for example some macOS ones).
+_HAVE_REPLACE_DIR_FD = os.replace in os.supports_dir_fd
 
 FileIdentity = tuple[int, int]  # (st_dev, st_ino)
 
@@ -170,7 +176,7 @@ def _prepare_repo_local(location: IndexLocation, create: bool) -> PreparedIndex:
     db = location.path
     index_dir = db.parent
     repo_root = index_dir.parent
-    if not _HAVE_DIR_FD:  # pragma: no cover - Windows
+    if not _HAVE_DIR_FD:
         return _prepare_lstat_only(location, create)
 
     root_fd = os.open(repo_root, os.O_RDONLY | _O_DIRECTORY)
@@ -242,7 +248,8 @@ def _prepare_explicit(location: IndexLocation, create: bool) -> PreparedIndex:
     return PreparedIndex(location, None, file_identity)
 
 
-def _prepare_lstat_only(location: IndexLocation, create: bool) -> PreparedIndex:  # pragma: no cover
+def _prepare_lstat_only(location: IndexLocation, create: bool) -> PreparedIndex:
+    """Weaker, path-based checks for platforms without ``dir_fd``/``O_NOFOLLOW``."""
     db = location.path
     for candidate in (db.parent, db, db.parent / MARKER_NAME):
         if candidate.is_symlink():
@@ -252,6 +259,9 @@ def _prepare_lstat_only(location: IndexLocation, create: bool) -> PreparedIndex:
         marker = db.parent / MARKER_NAME
         if location.repo_local and not marker.exists():
             marker.write_text("*\n", encoding="utf-8")
+        if db.exists() and not db.is_file():
+            raise _reject(db, "it is not a regular file")
+        db.touch(exist_ok=True)  # SQLite is opened with mode=rw, which needs the file
     if not db.exists():
         return PreparedIndex(location, None, None)
     if not db.is_file():
@@ -268,3 +278,113 @@ def prepare_index(location: IndexLocation, *, create: bool) -> PreparedIndex:
     if location.repo_local:
         return _prepare_repo_local(location, create)
     return _prepare_explicit(location, create)
+
+
+def _output_target_mode(name: str, dir_fd: int, shown: Path) -> int | None:
+    """Permission bits of an existing regular destination, or None if absent."""
+    try:
+        info = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+    if stat.S_ISLNK(info.st_mode):
+        raise OutputPathError(f"refusing to write {shown}: it is a symbolic link")
+    if not stat.S_ISREG(info.st_mode):
+        raise OutputPathError(f"refusing to write {shown}: it exists and is not a regular file")
+    return stat.S_IMODE(info.st_mode) & 0o777
+
+
+def write_output_file(path: Path, data: bytes) -> None:
+    """Atomically create or replace the regular file ``path`` with ``data``.
+
+    Policy: the destination may be new or an existing regular file, which is
+    replaced (keeping its permission bits). A symlink, directory, or other
+    special file at the destination is refused. The parent directory must
+    already exist; it may be reached through symlinks, since the caller chose
+    it, and it is pinned by a descriptor for the rest of the operation.
+
+    The data goes to a uniquely named ``O_EXCL | O_NOFOLLOW`` temporary file
+    beside the destination, is flushed with ``fsync``, and is moved into place
+    with ``rename``, which replaces the directory entry and never writes
+    through a symlink. Any failure, including Ctrl-C, removes the temporary
+    file and leaves the existing destination untouched.
+
+    Limits: if another process swaps the destination between the check and the
+    rename, the rename replaces whatever entry is then present (but never the
+    target of a symlink). Where ``renameat`` is unavailable (some macOS
+    builds), the final rename is by path after re-checking the parent's
+    identity, leaving a narrow window for a concurrent parent swap. If the
+    process is killed outright, a hidden ``.<name>.<random>.tmp`` file can be
+    left behind.
+    """
+    target = Path(os.path.abspath(path))  # noqa: PTH100 - keep a symlinked final component visible
+    name = target.name
+    if name in ("", ".", ".."):
+        raise OutputPathError(f"refusing to write {path}: not a file name")
+    if not _HAVE_DIR_FD:  # pragma: no cover - Windows
+        _write_output_by_path(target, data)
+        return
+    try:
+        dir_fd = os.open(target.parent, os.O_RDONLY | _O_DIRECTORY)
+    except FileNotFoundError as exc:
+        raise OutputPathError(f"output directory does not exist: {target.parent}") from exc
+    except NotADirectoryError as exc:
+        raise OutputPathError(f"output parent is not a directory: {target.parent}") from exc
+    tmp_name = f".{name}.{secrets.token_hex(8)}.tmp"
+    created = False
+    try:
+        mode = _output_target_mode(name, dir_fd, target)
+        fd = os.open(
+            tmp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | _O_NOFOLLOW,
+            0o666 if mode is None else mode,
+            dir_fd=dir_fd,
+        )
+        created = True
+        try:
+            if mode is not None:
+                os.fchmod(fd, mode)  # not subject to the umask, unlike open()'s mode
+            view = memoryview(data)
+            while view:
+                view = view[os.write(fd, view) :]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        _output_target_mode(name, dir_fd, target)  # re-check just before replacing
+        if _HAVE_REPLACE_DIR_FD:
+            os.replace(tmp_name, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        else:
+            # No renameat(): rename by path after confirming the path still
+            # names the pinned directory (a narrow window remains).
+            if _identity(target.parent.stat()) != _identity(os.fstat(dir_fd)):
+                raise OutputPathError(f"output directory {target.parent} changed while writing")
+            os.replace(target.parent / tmp_name, target)  # noqa: PTH105 - mirrors the dir_fd call
+        created = False
+        with contextlib.suppress(OSError):
+            os.fsync(dir_fd)  # persist the rename where the platform supports it
+    except OSError as exc:
+        raise OutputPathError(f"could not write {target}: {exc}") from exc
+    finally:
+        if created:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(tmp_name, dir_fd=dir_fd)
+        os.close(dir_fd)
+
+
+def _write_output_by_path(target: Path, data: bytes) -> None:  # pragma: no cover - Windows
+    import tempfile
+
+    if target.is_symlink():
+        raise OutputPathError(f"refusing to write {target}: it is a symbolic link")
+    if target.exists() and not target.is_file():
+        raise OutputPathError(f"refusing to write {target}: it exists and is not a regular file")
+    fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        Path(tmp).replace(target)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            Path(tmp).unlink()
+        raise

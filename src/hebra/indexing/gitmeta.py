@@ -109,8 +109,9 @@ def has_git_metadata(start: Path) -> bool:
 
 @dataclass(frozen=True)
 class GitListing:
-    paths: list[str]
-    truncated: bool  # stopped after ``max_entries`` paths
+    paths: list[str]  # in Git's output order
+    truncated: bool  # more than ``max_entries`` paths exist
+    entries_read: int  # paths read from git's output, including one look-ahead
 
 
 def list_git_files(
@@ -118,9 +119,18 @@ def list_git_files(
 ) -> GitListing:
     """List files Git knows about under ``repo_root``, relative to it.
 
-    By default only tracked files are listed. With ``include_untracked``,
-    untracked files that are not ignored by ``.gitignore`` are added. Output is
-    streamed and reading stops after ``max_entries`` paths.
+    By default this is ``git ls-files --cached``: every path in Git's index.
+    That includes committed files *and* newly staged files that have never
+    been committed, and it includes tracked files even if they match
+    ``.gitignore``. It excludes untracked files and ignored untracked files.
+    Hebra then reads each path's current working-tree content, so unstaged
+    edits are indexed and paths deleted from the working tree are skipped.
+
+    With ``include_untracked``, untracked files not excluded by ``.gitignore``
+    (and other standard exclude files) are added after the indexed paths.
+
+    Output is streamed in Git's order and reading stops once ``max_entries``
+    paths are collected; one further path is read only to report truncation.
 
     Raises :class:`GitError` if ``git`` is missing or the listing fails; callers
     must not fall back to an unfiltered filesystem walk in that case.
@@ -138,7 +148,10 @@ def list_git_files(
     argv += ["--cached", "--others", "--exclude-standard"] if include_untracked else ["--cached"]
 
     seen: set[str] = set()
+    paths: list[str] = []
+    entries_read = 0
     truncated = False
+    timed_out = threading.Event()
     with tempfile.TemporaryFile() as err:
         try:
             proc = subprocess.Popen(
@@ -146,26 +159,40 @@ def list_git_files(
             )
         except OSError as exc:
             raise GitError(f"could not run git in {repo_root}: {exc}") from exc
-        timer = threading.Timer(_GIT_TIMEOUT_SECONDS, proc.kill)
+
+        def on_timeout() -> None:
+            timed_out.set()
+            proc.kill()
+
+        timer = threading.Timer(_GIT_TIMEOUT_SECONDS, on_timeout)
         timer.start()
         try:
             assert proc.stdout is not None
             pending = b""
-            while chunk := proc.stdout.read(65536):
+            while not truncated and (chunk := proc.stdout.read(65536)):
                 *entries, pending = (pending + chunk).split(b"\0")
                 for entry in entries:
-                    # --cached and --others can both report a path during merges.
-                    if entry:
-                        seen.add(entry.decode("utf-8", errors="surrogateescape"))
-                if len(seen) >= max_entries:
-                    truncated = True
-                    proc.kill()
-                    break
+                    if not entry:
+                        continue
+                    entries_read += 1
+                    path = entry.decode("utf-8", errors="surrogateescape")
+                    if path in seen:  # unmerged paths can be listed more than once
+                        continue
+                    if len(paths) == max_entries:
+                        truncated = True
+                        proc.kill()
+                        break
+                    seen.add(path)
+                    paths.append(path)
             returncode = proc.wait()
         finally:
             timer.cancel()
             if proc.stdout is not None:
                 proc.stdout.close()
+        if timed_out.is_set():
+            raise GitError(
+                f"`git ls-files` in {repo_root} did not finish within {_GIT_TIMEOUT_SECONDS}s"
+            )
         if not truncated and returncode != 0:
             err.seek(0)
             detail = err.read(2000).decode("utf-8", errors="replace").strip()
@@ -175,5 +202,4 @@ def list_git_files(
                 "should succeed), or pass --no-git to walk the filesystem without .gitignore "
                 "filtering"
             )
-    paths = sorted(seen)
-    return GitListing(paths[:max_entries], truncated)
+    return GitListing(paths, truncated, entries_read)

@@ -23,7 +23,7 @@ from hebra.context.render import escape_untrusted
 from hebra.context.tokenizer import DEFAULT_ENCODING, SUPPORTED_ENCODINGS
 from hebra.errors import HebraError
 from hebra.indexing import index_repository, index_summary
-from hebra.paths import resolve_repository
+from hebra.paths import resolve_repository, write_output_file
 from hebra.retrieval.search import DEFAULT_LIMIT, MAX_LIMIT, search
 
 
@@ -142,7 +142,7 @@ def cmd_pack(args: argparse.Namespace) -> int:
     else:
         output = result.markdown
     if args.output:
-        Path(args.output).write_text(output, encoding="utf-8")
+        write_output_file(Path(args.output), output.encode("utf-8"))
     else:
         _emit(output)
     print(
@@ -211,9 +211,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="build or incrementally update the repository index",
         description="Scan a repository and build or update its local SQLite index. Unchanged "
         "files are skipped by content hash; deleted and newly excluded files are removed. In "
-        "Git repositories only tracked files are indexed (via `git ls-files`); if Git metadata "
+        "Git repositories the paths are those in Git's index (`git ls-files --cached`): "
+        "committed files plus newly staged ones, read with their current working-tree "
+        "content, so unstaged edits are included; untracked files are not. If Git metadata "
         "exists but the listing fails, indexing stops. Files with credential-like names "
-        "(.env, *.pem, id_rsa, ...) and files containing PEM private keys are always skipped.",
+        "(.env, *.pem, id_rsa, ...) and files containing PEM private keys are always skipped; "
+        "this is a filename/pattern filter, not a scanner for secrets inside other files. If "
+        "files change during the scan it is retried (at most 3 attempts) or fails.",
     )
     add_common(p_index)
     p_index.add_argument(
@@ -231,7 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_index.add_argument(
         "--include-untracked",
         action="store_true",
-        help="Git repositories: also index untracked files not excluded by .gitignore",
+        help="Git repositories: also index untracked files that .gitignore does not exclude",
     )
     p_index.add_argument(
         "--no-git",
@@ -293,7 +297,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="markdown: the context itself; json: full report including the context "
         "(default: %(default)s)",
     )
-    p_pack.add_argument("--output", "-o", metavar="FILE", help="write to FILE instead of stdout")
+    p_pack.add_argument(
+        "--output",
+        "-o",
+        metavar="FILE",
+        help="write to FILE instead of stdout, atomically; an existing regular file is "
+        "replaced, a symlink or non-regular file is refused",
+    )
     p_pack.set_defaults(func=cmd_pack)
 
     p_stats = sub.add_parser(

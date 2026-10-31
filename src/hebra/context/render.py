@@ -3,11 +3,16 @@
 The rendered Markdown *is* the packed context: every character of it,
 including headings and fences, is counted against the token budget.
 
-Repository paths, symbol names, and file contents are untrusted. Paths and
-names are shown only inside inline code spans after escaping characters that
-could end a line or hide text (control, format, and separator characters), so
-they cannot start a heading or paragraph. File contents are placed in code
-fences longer than any backtick run they contain. Generated text is ASCII.
+Repository paths, symbol names, file contents, and the task text are all
+untrusted. Paths and names are shown only inside inline code spans after
+escaping characters that could end a line or hide text (control, format, and
+separator characters), so they cannot start a heading or paragraph. File
+contents and the task are placed in fenced code blocks whose backtick fence is
+longer than any backtick run they contain, so nothing inside can close the
+block. Generated text is ASCII.
+
+This protects the document's *structure* only. Text inside a fence can still
+say anything; a model reading it may follow instructions written there.
 """
 
 from __future__ import annotations
@@ -69,11 +74,12 @@ def render_header(
     encoding: str,
     source_check: str,
 ) -> str:
-    quoted_task = "\n".join(f"> {line}".rstrip() for line in task.strip().splitlines())
+    task_text = "\n".join(task.strip().splitlines())
+    fence = _fence_for(task_text)
     rev = revision or "none (not a Git repository or no commits)"
     return (
         "# Hebra context\n\n"
-        f"Task:\n\n{quoted_task}\n\n"
+        f"Task (verbatim):\n\n{fence}text\n{task_text}\n{fence}\n\n"
         f"- Repository: {code_span(repo_name)}\n"
         f"- Indexed revision: {rev}\n"
         f"- Token budget: {budget} ({encoding})\n"
