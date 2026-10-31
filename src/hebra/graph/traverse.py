@@ -8,6 +8,19 @@ from dataclasses import dataclass
 MAX_HOPS = 2
 DEFAULT_MAX_NODES = 50
 EXPANSION_KINDS = ("calls", "references", "tests", "contains")
+# Expansion order within a hop: what the seed uses first (callees, then
+# referenced symbols), then who uses the seed (callers, references), then the
+# tests that exercise it, then structural containment.
+EDGE_PRIORITY = {
+    ("calls", "out"): 0,
+    ("references", "out"): 1,
+    ("calls", "in"): 2,
+    ("references", "in"): 3,
+    ("tests", "in"): 4,
+    ("contains", "out"): 5,
+    ("contains", "in"): 6,
+    ("tests", "out"): 7,
+}
 
 
 @dataclass(frozen=True)
@@ -30,7 +43,7 @@ def neighbors(
     """Nodes within ``max_hops`` resolved edges of ``seeds`` (seeds excluded).
 
     Breadth-first in seed order; within a hop, edges are visited in
-    (kind, direction, node id) order. Stops once ``max_nodes`` nodes are
+    ``EDGE_PRIORITY`` order, then by node id. Stops once ``max_nodes`` nodes are
     found, so work is bounded regardless of graph density. ``contains``
     edges from file nodes are not followed (a file contains everything in it).
     """
@@ -55,7 +68,8 @@ def neighbors(
             if not node.startswith("file:"):
                 steps += [(k, "out", d) for k, d in conn.execute(out_sql, (node, *kinds))]
             steps += [(k, "in", s) for k, s in conn.execute(in_sql, (node, *kinds))]
-            for kind, direction, other in sorted(steps):
+            steps.sort(key=lambda s: (EDGE_PRIORITY.get((s[0], s[1]), 9), s[2]))
+            for kind, direction, other in steps:
                 if other in visited or other.startswith("file:"):
                     continue
                 visited.add(other)
