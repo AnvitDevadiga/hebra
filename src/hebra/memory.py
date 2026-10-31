@@ -361,21 +361,24 @@ class MemoryStore:
         return RefCheck(ref, "changed", "referenced lines no longer present")
 
     def _find_renamed(self, ref: SourceRef) -> str | None:
-        """An indexed file with the same content hash, from the repository index."""
-        index = self.root / ".hebra" / "index.sqlite3"
-        if not index.is_file():
-            return None
+        """An indexed file with the same content hash, read through the safe index opener."""
+        from hebra.errors import HebraError
+        from hebra.indexing import store
+        from hebra.paths import index_location
+
         try:
-            conn = sqlite3.connect(index.resolve().as_uri() + "?mode=ro", uri=True)
-            try:
-                row = conn.execute(
-                    "SELECT path FROM files WHERE sha256 = ? ORDER BY path LIMIT 1",
-                    (ref.file_sha256,),
-                ).fetchone()
-            finally:
-                conn.close()
+            conn = store.open_for_read(index_location(self.root))
+        except HebraError:
+            return None  # no index, or an unsafe/foreign one: do not consult it
+        try:
+            row = conn.execute(
+                "SELECT path FROM files WHERE sha256 = ? ORDER BY path LIMIT 1",
+                (ref.file_sha256,),
+            ).fetchone()
         except sqlite3.Error:
             return None
+        finally:
+            conn.close()
         if row is None:
             return None
         data = read_repository_file(self.root, PurePosixPath(row[0]), MAX_REF_FILE_BYTES)

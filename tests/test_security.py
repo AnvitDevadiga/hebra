@@ -1057,3 +1057,30 @@ def test_lstat_fallback_indexes_and_still_rejects_symlinks(
     os.symlink(victim, other / ".hebra")
     with pytest.raises(IndexPathError, match="symbolic link"):
         fs_index(other)
+
+
+def test_trace_output_escapes_untrusted_reasons(make_repo) -> None:
+    body = "def shared_helper():\n    return 1\n"
+    root = make_repo({"0\x1b[31mRED.py": body, "z.py": body})
+    fs_index(root)
+    result = run_cli("pack", str(root), "--task", "shared helper", "--budget", "2000", "--trace")
+    assert result.returncode == 0
+    assert b"\x1b" not in result.stderr
+
+
+def test_memory_rename_check_refuses_symlinked_index(make_repo, tmp_path: Path) -> None:
+    from hebra.memory import open_memory
+
+    root = make_repo({"t.py": "def f():\n    return 1\n"})
+    with open_memory(root, create=True) as memory:
+        rid = memory.add("fact", "f", ["t.py:1-2"]).record.id
+    (root / "t.py").unlink()
+    other = tmp_path / "other.db"
+    conn = sqlite3.connect(other)
+    conn.execute("CREATE TABLE files(path, sha256)")
+    conn.commit()
+    conn.close()
+    os.symlink(other, root / ".hebra" / "index.sqlite3")
+    with open_memory(root, create=False) as memory:
+        check = memory.view(memory.get(rid)).checks[0]
+    assert check.status == "missing"  # the foreign database was not consulted

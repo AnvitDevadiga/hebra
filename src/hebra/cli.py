@@ -191,7 +191,8 @@ def _print_trace(result: PackResult) -> None:
         red = "" if not d.redundancy else f" redundancy={d.redundancy:.4f}"
         tokens = "" if d.tokens is None else f" tokens={d.tokens}"
         print(
-            f"  {mark} #{d.rank:<3} {escape_untrusted(d.key)}{tokens}{gain}{red}  {d.reason}",
+            f"  {mark} #{d.rank:<3} {escape_untrusted(d.key)}{tokens}{gain}{red}  "
+            f"{escape_untrusted(d.reason)}",
             file=sys.stderr,
         )
 
