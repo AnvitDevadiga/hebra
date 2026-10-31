@@ -143,14 +143,20 @@ jobs:
           print(f"pack ok: {len(report['selected'])} fragments, {used}/{limit} tokens")
           EOF
           hebra graph "$GITHUB_WORKSPACE" pack_context --json > /tmp/graph.json
-          hebra memory add "$GITHUB_WORKSPACE" --memory-db /tmp/memory.sqlite3 --kind fact \
-            --text "pack_context verifies the token budget" \
-            --ref src/hebra/context/packer.py:1-5
-          hebra memory list "$GITHUB_WORKSPACE" --memory-db /tmp/memory.sqlite3 --json \
-            > /tmp/memory.json
-          hebra pack "$GITHUB_WORKSPACE" --task "pack context token budget" --budget 3000 \
+          # Memory is checked on the small example repository, where the
+          # outcome does not depend on how much code this repository contains.
+          cp -R "$GITHUB_WORKSPACE/examples/demo-shop" /tmp/demo-shop
+          cd /tmp/demo-shop
+          git init -q -b main && git add -A
+          git -c user.name=ci -c user.email=ci@example.invalid commit -qm demo
+          hebra index .
+          hebra memory add . --memory-db /tmp/memory.sqlite3 --kind fact \
+            --text "Payment charges retry with backoff" --ref shop/payments.py:12-21
+          hebra memory list . --memory-db /tmp/memory.sqlite3 --json > /tmp/memory.json
+          hebra pack . --task "retry payment charges" --budget 1500 \
             --retrieval bm25_graph --strategy optimized --memory \
             --memory-db /tmp/memory.sqlite3 --trace --format json -o /tmp/pack2.json
+          cd /tmp
           python - <<'EOF'
           import json
           graph = json.load(open("/tmp/graph.json"))
