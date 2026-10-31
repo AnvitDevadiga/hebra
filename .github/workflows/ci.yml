@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # tiktoken downloads each encoding file once; cache it so runs do not
+  # depend on fetching it from the network every time.
+  TIKTOKEN_CACHE_DIR: ${{ github.workspace }}/.tiktoken-cache
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -40,8 +45,15 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Cache tiktoken encodings
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.TIKTOKEN_CACHE_DIR }}
+          key: tiktoken-o200k-cl100k-v1
       - name: Install
         run: python -m pip install -e ".[dev]"
+      - name: Fetch tokenizer encodings (no-op when cached)
+        run: python -c "import tiktoken; [tiktoken.get_encoding(e) for e in ('o200k_base', 'cl100k_base')]"
       - name: Pytest
         run: pytest -v
 
@@ -52,6 +64,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - name: Cache tiktoken encodings
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.TIKTOKEN_CACHE_DIR }}
+          key: tiktoken-o200k-cl100k-v1
       - name: Build sdist and wheel
         run: |
           python -m pip install build==1.6.1
@@ -78,5 +95,6 @@ jobs:
           used, limit = report["budget"]["used"], report["budget"]["limit"]
           assert used <= limit, (used, limit)
           assert report["selected"], "expected at least one fragment"
+          assert all(s["source_status"] == "current" for s in report["selected"])
           print(f"pack ok: {len(report['selected'])} fragments, {used}/{limit} tokens")
           EOF
