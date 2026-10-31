@@ -26,6 +26,7 @@ a probability of usefulness.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -37,14 +38,18 @@ BOUNDARY_SLACK_TOKENS = 16
 
 @dataclass(frozen=True)
 class Weights:
-    """Objective weights. Defaults chosen on the benchmark's dev split only
-    (``benchmarks/results/v1-dev-tuning``); every grid setting scored within
-    0.015 mean symbol recall of the others, so the choice is not significant."""
+    """Objective weights.
+
+    Defaults come from the pre-registered grid search on the benchmark's dev
+    split only (``benchmarks/results/v2-dev-tuning``): a steep rank prior
+    (``rank_decay`` 2, the largest value in the grid) and no query-term
+    coverage (``beta`` 0) scored best there. See ``docs/benchmarks.md``.
+    """
 
     alpha: float = 1.0  # rank prior
-    beta: float = 1.0  # query-term coverage
+    beta: float = 0.0  # query-term coverage
     gamma: float = 0.5  # graph-symbol coverage
-    rank_decay: float = 0.0  # k in the rank prior rank ** -k (0 = flat)
+    rank_decay: float = 2.0  # k in the rank prior rank ** -k (0 = flat)
 
     def __post_init__(self) -> None:
         if min(self.alpha, self.beta, self.gamma, self.rank_decay) < 0:
@@ -100,7 +105,7 @@ class Objective:
         self.g = {s: symbol_weights[s] / sym_total for s in relevant} if sym_total else {}
 
     def prior(self, item: Item) -> float:
-        return float(item.rank) ** -self.weights.rank_decay
+        return math.pow(item.rank, -self.weights.rank_decay)  # rank >= 1
 
     def gain(self, item: Item, terms: set[str], symbols: set[str]) -> float:
         a, b, c = self.weights.alpha, self.weights.beta, self.weights.gamma

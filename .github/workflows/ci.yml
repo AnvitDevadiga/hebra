@@ -56,6 +56,10 @@ jobs:
         run: python -c "import tiktoken; [tiktoken.get_encoding(e) for e in ('o200k_base', 'cl100k_base')]"
       - name: Pytest
         run: pytest -v
+      - name: Memory freshness scenarios
+        run: |
+          python benchmarks/memory_freshness.py /tmp/memory-freshness
+          python -c "import json, sys; r = json.load(open('/tmp/memory-freshness/results.json')); sys.exit(r['correct'] != r['scenarios'])"
 
   package:
     runs-on: ubuntu-latest
@@ -97,4 +101,26 @@ jobs:
           assert report["selected"], "expected at least one fragment"
           assert all(s["source_status"] == "current" for s in report["selected"])
           print(f"pack ok: {len(report['selected'])} fragments, {used}/{limit} tokens")
+          EOF
+          hebra graph "$GITHUB_WORKSPACE" pack_context --json > /tmp/graph.json
+          hebra memory add "$GITHUB_WORKSPACE" --memory-db /tmp/memory.sqlite3 --kind fact \
+            --text "pack_context verifies the token budget" \
+            --ref src/hebra/context/packer.py:1-5
+          hebra memory list "$GITHUB_WORKSPACE" --memory-db /tmp/memory.sqlite3 --json \
+            > /tmp/memory.json
+          hebra pack "$GITHUB_WORKSPACE" --task "pack context token budget" --budget 3000 \
+            --retrieval bm25_graph --strategy optimized --memory \
+            --memory-db /tmp/memory.sqlite3 --trace --format json -o /tmp/pack2.json
+          python - <<'EOF'
+          import json
+          graph = json.load(open("/tmp/graph.json"))
+          assert graph["matches"][0]["outgoing"], "expected edges for pack_context"
+          memory = json.load(open("/tmp/memory.json"))
+          assert memory[0]["status"] == "current", memory
+          report = json.load(open("/tmp/pack2.json"))
+          assert report["budget"]["used"] <= report["budget"]["limit"]
+          assert report["method"]["retrieval"] == "bm25_graph"
+          assert report["method"]["strategy"] == "optimized"
+          assert report["memory"]["selected"], "expected the verified memory record"
+          print("graph, memory, and optimized pack ok")
           EOF
