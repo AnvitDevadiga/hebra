@@ -19,11 +19,11 @@ from hebra.errors import IndexDatabaseError, IndexNotFoundError, IndexPathError,
 from hebra.paths import IndexLocation, prepare_index
 
 # Table layout. A mismatch on read is an error; on index it forces a rebuild.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 # Version of everything that derives stored rows from source: scanning rules
 # that change stored content, parsing, chunking, and FTS column derivation.
 # Bump on any such change so old chunks are never silently reused.
-INDEX_FORMAT_VERSION = 2
+INDEX_FORMAT_VERSION = 3
 # PRAGMA application_id marking a database as a Hebra index ("HEBR").
 APPLICATION_ID = 0x48454252
 WRITE_BUSY_TIMEOUT_SECONDS = 30.0
@@ -41,11 +41,14 @@ _SCHEMA_STATEMENTS = (
         size_bytes  INTEGER NOT NULL,
         line_count  INTEGER NOT NULL,
         language    TEXT NOT NULL,
-        parser      TEXT NOT NULL
+        parser      TEXT NOT NULL,
+        module      TEXT,
+        is_test     INTEGER NOT NULL DEFAULT 0
     )""",
     """CREATE TABLE symbols (
         id          INTEGER PRIMARY KEY,
         file_id     INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        symbol_id   TEXT NOT NULL UNIQUE,
         name        TEXT NOT NULL,
         qualname    TEXT NOT NULL,
         kind        TEXT NOT NULL,
@@ -64,6 +67,27 @@ _SCHEMA_STATEMENTS = (
         line     INTEGER NOT NULL
     )""",
     "CREATE INDEX imports_file ON imports(file_id)",
+    """CREATE TABLE refs (
+        id       INTEGER PRIMARY KEY,
+        file_id  INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        scope    TEXT NOT NULL,
+        kind     TEXT NOT NULL,
+        expr     TEXT NOT NULL,
+        line     INTEGER NOT NULL
+    )""",
+    "CREATE INDEX refs_file ON refs(file_id)",
+    """CREATE TABLE edges (
+        id      INTEGER PRIMARY KEY,
+        src     TEXT NOT NULL,
+        dst     TEXT,
+        kind    TEXT NOT NULL,
+        status  TEXT NOT NULL,
+        target  TEXT NOT NULL,
+        line    INTEGER NOT NULL,
+        detail  TEXT NOT NULL
+    )""",
+    "CREATE INDEX edges_src ON edges(src, status, kind)",
+    "CREATE INDEX edges_dst ON edges(dst, status, kind)",
     """CREATE TABLE chunks (
         id              INTEGER PRIMARY KEY,
         file_id         INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,

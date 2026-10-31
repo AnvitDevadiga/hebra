@@ -218,8 +218,9 @@ def test_h1_previous_phase1_index_is_rebuilt(make_repo) -> None:
     root = make_repo({"a.py": "def alpha():\n    pass\n"})
     fs_index(root)
     db = root / ".hebra" / "index.sqlite3"
-    # Recreate the pre-remediation layout: no application_id, no format key.
+    # Recreate the pre-remediation layout: schema 1, no application_id, no format key.
     conn = sqlite3.connect(db)
+    conn.execute("PRAGMA user_version = 1")
     conn.execute("PRAGMA application_id = 0")
     conn.execute("DELETE FROM meta WHERE key = 'index_format_version'")
     conn.commit()
@@ -230,6 +231,20 @@ def test_h1_previous_phase1_index_is_rebuilt(make_repo) -> None:
     assert report.rebuilt and report.files_added == 1
     assert any("rebuilt" in w for w in report.warnings)
     assert search(root, "alpha").hits
+
+
+def test_final_phase1_index_is_rebuilt_for_new_schema(make_repo) -> None:
+    root = make_repo({"a.py": "def alpha():\n    pass\n"})
+    fs_index(root)
+    conn = sqlite3.connect(root / ".hebra" / "index.sqlite3")
+    conn.execute("PRAGMA user_version = 1")  # merged Phase 1: schema 1, format 2, app id set
+    conn.execute("UPDATE meta SET value = '2' WHERE key = 'index_format_version'")
+    conn.commit()
+    conn.close()
+    with pytest.raises(IndexVersionError):
+        search(root, "alpha")
+    report = fs_index(root)
+    assert report.rebuilt and search(root, "alpha").hits
 
 
 def test_l6_chunking_change_forces_rebuild(make_repo) -> None:

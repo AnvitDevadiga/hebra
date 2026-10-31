@@ -22,8 +22,9 @@ from hebra.context.packer import DEFAULT_CANDIDATES, MAX_BUDGET, pack_context
 from hebra.context.render import escape_untrusted
 from hebra.context.tokenizer import DEFAULT_ENCODING, SUPPORTED_ENCODINGS
 from hebra.errors import HebraError
-from hebra.indexing import index_repository, index_summary
-from hebra.paths import resolve_repository, write_output_file
+from hebra.graph.traverse import MAX_HOPS, explore, find_symbols
+from hebra.indexing import index_repository, index_summary, store
+from hebra.paths import index_location, resolve_repository, write_output_file
 from hebra.retrieval.search import DEFAULT_LIMIT, MAX_LIMIT, search
 
 
@@ -184,6 +185,40 @@ def cmd_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_graph(args: argparse.Namespace) -> int:
+    repo = resolve_repository(Path(args.repository))
+    location = index_location(repo, _db_path(args))
+    conn = store.open_for_read(location)
+    try:
+        with store.database_errors(location.path):
+            matches = find_symbols(conn, args.symbol)
+            if not matches:
+                raise HebraError(f"no indexed symbol matches {args.symbol!r}")
+            results = [explore(conn, m, max_hops=args.depth, max_nodes=args.limit) for m in matches]
+    finally:
+        conn.close()
+    if args.json:
+        _print_json({"query": args.symbol, "matches": [r.to_dict() for r in results]})
+        return 0
+    for r in results:
+        sym = r.symbol
+        print(
+            f"{escape_untrusted(sym.symbol_id)}  ({sym.kind}, lines {sym.start_line}-"
+            f"{sym.end_line})"
+        )
+        for kind, status, target, detail, line in r.outgoing:
+            note = "" if status == "resolved" else f"  [{status}: {detail}]"
+            print(f"  -> {kind:<10} {escape_untrusted(target)}  (line {line}){note}")
+        for kind, src, line in r.incoming:
+            print(f"  <- {kind:<10} {escape_untrusted(src)}  (line {line})")
+        if r.neighborhood:
+            print(f"  within {args.depth} hop(s): {len(r.neighborhood)} symbol(s)")
+            for n in r.neighborhood:
+                arrow = "->" if n.direction == "out" else "<-"
+                print(f"     {n.hops} {arrow} {n.edge_kind:<10} {escape_untrusted(n.node)}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hebra",
@@ -305,6 +340,31 @@ def build_parser() -> argparse.ArgumentParser:
         "replaced, a symlink or non-regular file is refused",
     )
     p_pack.set_defaults(func=cmd_pack)
+
+    p_graph = sub.add_parser(
+        "graph",
+        help="show source relationships of a symbol",
+        description="Show statically resolved relationships (calls, references, tests, "
+        "contains, imports) for symbols matching an id, qualified name, or name. Calls "
+        "through unknown receivers, getattr/importlib, and external modules are listed "
+        "as uncertain, dynamic, or unresolved; they are never guessed.",
+    )
+    add_common(p_graph)
+    p_graph.add_argument("symbol", help="symbol id (path::qualname), qualified name, or name")
+    p_graph.add_argument(
+        "--depth",
+        type=_bounded_int(0, MAX_HOPS),
+        default=1,
+        help="neighborhood hops to list (default: %(default)s)",
+    )
+    p_graph.add_argument(
+        "--limit",
+        type=_bounded_int(1, 200),
+        default=25,
+        help="maximum neighborhood size (default: %(default)s)",
+    )
+    p_graph.add_argument("--json", action="store_true", help="print as JSON")
+    p_graph.set_defaults(func=cmd_graph)
 
     p_stats = sub.add_parser(
         "stats",
