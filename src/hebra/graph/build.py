@@ -6,7 +6,10 @@ symbols: a renamed or deleted file can never leave a dangling resolved edge.
 
 Nodes are files (``file:<path>``) and symbols (``<path>::<qualname>``, with a
 ``#N`` suffix for the N-th repeated definition of the same qualname in one
-file). Edge kinds:
+file). When a qualname is defined more than once (``typing.overload`` stubs,
+property setters, conditional definitions), references resolve to the last
+definition, as Python's later binding would; references made *from* repeated
+definitions are attributed to the last one. Edge kinds:
 
 ``contains``    file -> top-level symbol, class -> method, function -> nested def
 ``imports``     file -> imported repository module (file)
@@ -257,7 +260,9 @@ def rebuild_graph(conn: sqlite3.Connection) -> dict[str, int]:
         "SELECT f.path, s.qualname, s.symbol_id, s.kind, s.name "
         "FROM symbols s JOIN files f ON f.id = s.file_id ORDER BY f.path, s.start_line, s.id"
     ):
-        r.files[path].symbols.setdefault(qualname, (symbol_id, kind))
+        # Later definitions rebind the name at run time (overload stubs, property
+        # setters, redefinitions), so the last definition in the file wins.
+        r.files[path].symbols[qualname] = (symbol_id, kind)
         r.symbol_kinds[symbol_id] = kind
         if kind in ("method", "async_method"):
             r.method_names[name] += 1

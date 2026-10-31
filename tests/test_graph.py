@@ -183,8 +183,28 @@ def test_same_name_definitions_get_distinct_ids(graph_repo: Path) -> None:
     ]
     conn.close()
     assert ids == ["src/shop/dupes.py::f", "src/shop/dupes.py::f#2"]
-    # g's call resolves to the first definition (documented approximation)
-    assert resolved_targets(graph_repo, "src/shop/dupes.py::g") == {"src/shop/dupes.py::f"}
+    # g's call resolves to the last definition, matching Python's rebinding
+    assert resolved_targets(graph_repo, "src/shop/dupes.py::g") == {"src/shop/dupes.py::f#2"}
+
+
+def test_overload_stubs_resolve_to_the_implementation(make_repo) -> None:
+    root = make_repo(
+        {
+            "api.py": (
+                "from typing import overload\n"
+                "@overload\n"
+                "def invoke(x: int) -> int: ...\n"
+                "@overload\n"
+                "def invoke(x: str) -> str: ...\n"
+                "def invoke(x):\n"
+                "    return x\n"
+                "def caller():\n"
+                "    return invoke(1)\n"
+            )
+        }
+    )
+    fs_index(root)
+    assert resolved_targets(root, "api.py::caller") == {"api.py::invoke#3"}
 
 
 def test_cyclic_imports_are_plain_edges(graph_repo: Path) -> None:
