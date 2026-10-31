@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "hebra"
 dynamic = ["version"]
-description = "Repository-aware context engine for AI coding agents. The right context. Nothing extra."
+description = "A context engine for AI coding agents. The right context. Nothing extra."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -38,6 +38,7 @@ dev = [
 hebra = "hebra.cli:main"
 
 [project.urls]
+Homepage = "https://anvitdevadiga.github.io/hebra/"
 Repository = "https://github.com/AnvitDevadiga/hebra"
 
 [tool.hatch.version]
@@ -67,6 +68,7 @@ ignore = [
 # Benchmark scripts run git from PATH and use a seeded, non-cryptographic RNG
 # for bootstrap intervals.
 "benchmarks/**" = ["S603", "S607", "S311"]
+"scripts/**" = ["S603", "S607"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

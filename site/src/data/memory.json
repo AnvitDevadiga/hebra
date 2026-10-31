@@ -1,0 +1,79 @@
+{
+  "steps": [
+    {
+      "explanation": "The referenced line was read and its SHA-256 stored.",
+      "record": {
+        "content": "EU and UK orders are taxed at 20 percent in tax_for_region.",
+        "git_revision": "28182db5334ffcb07360cf3f1f7445ce05c7c1c3",
+        "id": "mem_example",
+        "invalidated_reason": null,
+        "kind": "fact",
+        "provenance": "source-verified",
+        "refs": [
+          {
+            "detail": "",
+            "end_line": 3,
+            "file_sha256": "2c86c96ef520d7665c2f8cbb28c5abbf886edd44653f2132d07244f4b1b5a35e",
+            "path": "shop/tax.py",
+            "span_sha256": "bb4c81e90cbfe98a86474fdc3e4cbddadcf4258f4c026cce569f9f2fde0c61ba",
+            "start_line": 3,
+            "status": "current"
+          }
+        ],
+        "revision_note": "",
+        "status": "current"
+      },
+      "title": "Record added"
+    },
+    {
+      "explanation": "The file changed, but the referenced line is byte-identical, so the record stays current.",
+      "record": {
+        "content": "EU and UK orders are taxed at 20 percent in tax_for_region.",
+        "git_revision": "28182db5334ffcb07360cf3f1f7445ce05c7c1c3",
+        "id": "mem_example",
+        "invalidated_reason": null,
+        "kind": "fact",
+        "provenance": "source-verified",
+        "refs": [
+          {
+            "detail": "file changed elsewhere; referenced lines unchanged",
+            "end_line": 3,
+            "file_sha256": "2c86c96ef520d7665c2f8cbb28c5abbf886edd44653f2132d07244f4b1b5a35e",
+            "path": "shop/tax.py",
+            "span_sha256": "bb4c81e90cbfe98a86474fdc3e4cbddadcf4258f4c026cce569f9f2fde0c61ba",
+            "start_line": 3,
+            "status": "current"
+          }
+        ],
+        "revision_note": "",
+        "status": "current"
+      },
+      "title": "Unrelated edit"
+    },
+    {
+      "explanation": "The rate changed and was committed. The stored hash no longer matches, so the record is stale and is excluded from packed context.",
+      "record": {
+        "content": "EU and UK orders are taxed at 20 percent in tax_for_region.",
+        "git_revision": "28182db5334ffcb07360cf3f1f7445ce05c7c1c3",
+        "id": "mem_example",
+        "invalidated_reason": null,
+        "kind": "fact",
+        "provenance": "source-verified",
+        "refs": [
+          {
+            "detail": "referenced lines no longer present",
+            "end_line": 3,
+            "file_sha256": "2c86c96ef520d7665c2f8cbb28c5abbf886edd44653f2132d07244f4b1b5a35e",
+            "path": "shop/tax.py",
+            "span_sha256": "bb4c81e90cbfe98a86474fdc3e4cbddadcf4258f4c026cce569f9f2fde0c61ba",
+            "start_line": 3,
+            "status": "changed"
+          }
+        ],
+        "revision_note": "created at 28182db5334f; HEAD is now ab6630716066",
+        "status": "stale"
+      },
+      "title": "Referenced line changed"
+    }
+  ]
+}
